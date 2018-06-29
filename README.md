@@ -50,5 +50,7 @@ Recover original untouched macOS configuration prior to script modifications.
 ## Testing
 Run your application and check **Activity Monitor** > Window > GPU History **(⌘ + 4)** for GPU statistics.
 
+![Image](https://raw.githubusercontent.com/mayankk2308/set-egpu/master/resources/gpu-history.png)
+
 ## License
 See the license file for more information.
