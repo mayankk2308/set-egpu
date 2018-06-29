@@ -135,7 +135,7 @@ check_compatibility() {
 # Generalized reset mechanism
 reset_app_pref() {
   TARGET_APP="${1}"
-  [[ -z "/Applications/${TARGET_APP}" ]] && echo -e "No target application provided. No action taken.\n" && return
+  [[ ! -e "/Applications/${TARGET_APP}.app" && ! -e "${HOME}/Applications/${TARGET_APP}.app" ]] && echo -e "Target application does not exist. No action taken.\n" && return
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
     CURRENT_PREF="$(defaults read -app "${TARGET_APP}" "${POLICY_KEY}" 2>/dev/null)"
@@ -169,14 +169,29 @@ reset_all_apps_prefs() {
   echo -e "Reset complete.\n"
 }
 
+# Reset preferences for specified application
 reset_specified_apps_prefs() {
   echo -e "\n>> ${BOLD}Reset GPU Preferences for Specified Application(s)${NORMAL}\n"
   [[ $IS_HIGH_SIERRA == 0 ]] && echo -e "This option is currently disabled on ${BOLD}macOS Mojave Beta.${NORMAL}\n" && return
-  echo "Please use the ${BOLD}exact${NORMAL} application name."
+  echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   echo "${BOLD}Resetting...${NORMAL}"
   reset_app_pref "${INPUT}"
   echo -e "Reset complete.\n"
+}
+
+# Check preferences for specified application
+check_app_preferences() {
+  echo -e "\n>> ${BOLD}Check Application eGPU Preference${NORMAL}\n"
+  echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
+  IFS= read -p "Enter application name: " INPUT
+  CURRENT_PREF=""
+  [[ ! -e "/Applications/${INPUT}.app" && ! -e "${HOME}/Applications/${INPUT}.app" ]] && echo -e "Target application does not exist. No action taken.\n" && return
+  BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
+  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read -app "${INPUT}" "${POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${POLICY_KEY} 2>/dev/null)"
+  [[ "${CURRENT_PREF}" == "${POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="No preference set."
+  [[ "${CURRENT_PREF}" == "${POLICY_KEY}=${POLICY_VALUE}" || "${CURRENT_PREF}" == "${POLICY_VALUE}" ]] && CURRENT_PREF="Prefers external GPUs."
+  echo -e "${BOLD}Status${NORMAL}: ${CURRENT_PREF}\n"
 }
 
 # ----- DRIVER
