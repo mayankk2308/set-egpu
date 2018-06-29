@@ -45,17 +45,26 @@ POLICY_VALUE="preferRemovable"
 
 # ----- SOFTWARE UPDATES & INSTALLATION
 
+# Elevate privileges
+elevate_privileges() {
+  if [[ $(id -u) != 0 ]]
+  then
+    sudo bash "${SCRIPT}" "${OPTION}"
+    exit
+  fi
+}
+
 # Perform software update
 perform_software_update() {
   echo "${BOLD}Downloading...${NORMAL}"
   curl -L -s "${LATEST_RELEASE_DWLD}" > "${TMP_SCRIPT}"
-  echo "Download complete.\n${BOLD}Updating...${NORMAL}"
+  echo -e "Download complete.\n${BOLD}Updating...${NORMAL}"
   chmod 700 "${TMP_SCRIPT}" && chmod +x "${TMP_SCRIPT}"
-  rm "${SCRIPT}" && mv "${TMP_SCRIPT}" "${SCRIPT}"
+  #rm "${SCRIPT}" && mv "${TMP_SCRIPT}" "${SCRIPT}"
   chown "${SUDO_USER}" "${SCRIPT}"
-  echo "Update complete. ${BOLD}Relaunching...${NORMAL}"
-  "${SCRIPT}"
-  exit 0
+  echo -e "Update complete. ${BOLD}Relaunching...${NORMAL}"
+  su "${SUDO_USER}" "${SCRIPT}"
+  exit
 }
 
 # Prompt for update
@@ -78,6 +87,7 @@ fetch_latest_release() {
   LATEST_PATCH_VER="$(echo "${LATEST_RELEASE_VER}" | cut -d '.' -f3)"
   if [[ $LATEST_MAJOR_VER > $SCRIPT_MAJOR_VER || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER > $SCRIPT_MINOR_VER) || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER == $SCRIPT_MINOR_VER && $LATEST_PATCH_VER > $SCRIPT_PATCH_VER) && "$LATEST_RELEASE_DWLD" ]]
   then
+    elevate_privileges
     echo -e "\n>> ${BOLD}Software Update${NORMAL}\n\nA script update (${BOLD}${LATEST_RELEASE_VER}${NORMAL}) is available.\nYou are currently on ${BOLD}${SCRIPT_VER}${NORMAL}."
     prompt_software_update
   fi
@@ -99,16 +109,18 @@ first_time_setup() {
   BIN_SHA=""
   [[ -s "${SCRIPT_BIN}" ]] && BIN_SHA="$(shasum -a 512 -b "${SCRIPT_BIN}" | awk '{ print $1 }')"
   [[ "${BIN_SHA}" == "${SCRIPT_SHA}" ]] && return
+  mkdir -p "${LOCAL_BIN}"
+  elevate_privileges
   echo -e "\n>> ${BOLD}System Management${NORMAL}\n\n${BOLD}Installing...${NORMAL}"
   [[ ! -z "${BIN_SHA}" ]] && rm "${SCRIPT_BIN}"
   install_bin
   echo -e "Installation successful. ${BOLD}Proceeding...${NORMAL}\n" && sleep 1
+  su "${SUDO_USER}" "${SCRIPT}"
+  exit
 }
 
 # Start installation
 start_install() {
-  CREATE_BIN_DIR="$(mkdir -p "${LOCAL_BIN}" 2>&1)"
-  [[ ! -z "${CREATE_BIN_DIR}" ]] && echo "Failed to generate bin directory. ${BOLD}Continuing...${NORMAL}" && sleep 1 && return
   first_time_setup
   fetch_latest_release
 }
@@ -135,19 +147,20 @@ check_compatibility() {
 # Generalized set mechanism
 set_app_pref() {
   TARGET_APP="${1}"
-  [[ $IS_HIGH_SIERRA == 1 ]] && defaults write -app "${TARGET_APP}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>&1 && return
-  BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
+  BUNDLE_ID=$(osascript -e "id of app \"${TARGET_APP}\"")
+  [[ $IS_HIGH_SIERRA == 1 ]] && defaults write "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>&1 && return
   SafeEjectGPU SetPref "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>/dev/null 1>/dev/null
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
   TARGET_APP="${1}"
+  BUNDLE_ID=$(osascript -e "id of app \"${TARGET_APP}\"")
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
-    CURRENT_PREF="$(defaults read -app "${TARGET_APP}" "${POLICY_KEY}" 2>/dev/null)"
+    CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)"
     [[ -z "${CURRENT_PREF}" ]] && return
-    defaults delete -app "${TARGET_APP}" "${POLICY_KEY}" 1>/dev/null 2>&1
+    defaults delete "${BUNDLE_ID}" "${POLICY_KEY}" 1>/dev/null 2>&1
   else
     BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
     SafeEjectGPU RemovePref "${BUNDLE_ID}" "${POLICY_KEY}" 1>/dev/null 2>&1
@@ -156,7 +169,7 @@ reset_app_pref() {
 
 # Generic preference manageme for apps in given folder
 manage_all_apps_prefs_in_folder() {
-  [[ ! -e "${1}" ]] && echo "Incorrect folder path." && return
+  [[ ! -d "${1}" ]] && return
   while read APP
   do
     APP_NAME="${APP##*/}"
@@ -218,10 +231,10 @@ check_app_preferences() {
   CURRENT_PREF=""
   [[ ! -e "/Applications/${INPUT}.app" && ! -e "${HOME}/Applications/${INPUT}.app" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
   BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
-  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read -app "${INPUT}" "${POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${POLICY_KEY} 2>/dev/null)"
+  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${POLICY_KEY} 2>/dev/null)"
   [[ "${CURRENT_PREF}" == "${POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="No preference set."
   [[ "${CURRENT_PREF}" == "${POLICY_KEY}=${POLICY_VALUE}" || "${CURRENT_PREF}" == "${POLICY_VALUE}" ]] && CURRENT_PREF="Prefers external GPUs."
-  echo -e "${BOLD}Status${NORMAL}: ${CURRENT_PREF}\n"
+  echo -e "\n${BOLD}Status${NORMAL}: ${CURRENT_PREF}\n"
 }
 
 # ----- DRIVER
@@ -250,6 +263,7 @@ provide_menu_selection() {
   ask_menu
 }
 
+# Process arguments
 process_args() {
   case "${1}" in
     -sa|--set-all|1)
