@@ -135,15 +135,24 @@ check_compatibility() {
 # Generalized reset mechanism
 reset_app_pref() {
   TARGET_APP="${1}"
-  [[ -z "${TARGET_APP}" ]] && echo -e "No target application provided. No action taken.\n" && return
+  [[ -z "/Applications/${TARGET_APP}" ]] && echo -e "No target application provided. No action taken.\n" && return
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
     CURRENT_PREF="$(defaults read -app "${TARGET_APP}" "${POLICY_KEY}" 2>/dev/null)"
     [[ -z "${CURRENT_PREF}" ]] && return
     defaults delete -app "${TARGET_APP}" "${POLICY_KEY}" 2>&1
-  else
-    echo "This option is currently disabled on ${BOLD}macOS Mojave Beta.${NORMAL}" && return
   fi
+}
+
+# Generic preference reset for apps in given folder
+reset_all_apps_prefs_in_folder() {
+  [[ ! -e "${1}" ]] && echo "Incorrect folder path." && return
+  while read APP
+  do
+    APP_NAME="${APP##*/}"
+    APP_NAME="${APP_NAME%.*}"
+    reset_app_pref "${APP_NAME}"
+  done < <(find "${1}" -maxdepth 1 -name "*.app")
 }
 
 # Reset preferences for all applications
@@ -154,13 +163,19 @@ reset_all_apps_prefs() {
     RESET_PREF="$(SafeEjectGPU ResetPrefs 2>&1 1>/dev/null)"
     [[ ! -z "${RESET_PREF}" ]] && echo -e "An unknown error occurred while resetting preferences." && return
   else
-    while read APP
-    do
-      APP_NAME="${APP##*/}"
-      APP_NAME="${APP_NAME%.*}"
-      reset_app_pref "${APP_NAME}"
-    done < <(find "/Applications" -maxdepth 1 -name "*.app")
+    reset_all_apps_prefs_in_folder "/Applications"
+    reset_all_apps_prefs_in_folder "${HOME}/Applications"
   fi
+  echo -e "Reset complete.\n"
+}
+
+reset_specified_apps_prefs() {
+  echo -e "\n>> ${BOLD}Reset GPU Preferences for Specified Application(s)${NORMAL}\n"
+  [[ $IS_HIGH_SIERRA == 0 ]] && echo -e "This option is currently disabled on ${BOLD}macOS Mojave Beta.${NORMAL}\n" && return
+  echo "Please use the ${BOLD}exact${NORMAL} application name."
+  IFS= read -p "Enter application name: " INPUT
+  echo "${BOLD}Resetting...${NORMAL}"
+  reset_app_pref "${INPUT}"
   echo -e "Reset complete.\n"
 }
 
