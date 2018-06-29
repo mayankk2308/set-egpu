@@ -32,10 +32,10 @@ set-eGPU
 ## Options
 The script provides users with a variety of options in an attempt to be as user-friendly as possible - as a numbered menu. Advanced users may pass arguments to bypass the menu.
 
-#### 1. Set eGPU Preference for All Applications (`-pa|--prefer-all`)
+#### 1. Set eGPU Preference for All Applications (`-sa|--set-all`)
 Checks all available applications and sets their GPU preference to use eGPUs.
 
-#### 2. Set eGPU Preference for Specified Application(s) (`-ps|--prefer-specified`)
+#### 2. Set eGPU Preference for Specified Application(s) (`-ss|--set-specified`)
 Checks specified application(s) and sets its GPU preference to use eGPUs.
 
 #### 3. Check Application eGPU Preference (`-c|--check`)
