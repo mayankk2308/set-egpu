@@ -60,7 +60,7 @@ perform_software_update() {
   curl -L -s "${LATEST_RELEASE_DWLD}" > "${TMP_SCRIPT}"
   echo -e "Download complete.\n${BOLD}Updating...${NORMAL}"
   chmod 700 "${TMP_SCRIPT}" && chmod +x "${TMP_SCRIPT}"
-  #rm "${SCRIPT}" && mv "${TMP_SCRIPT}" "${SCRIPT}"
+  rm "${SCRIPT}" && mv "${TMP_SCRIPT}" "${SCRIPT}"
   chown "${SUDO_USER}" "${SCRIPT}"
   echo -e "Update complete. ${BOLD}Relaunching...${NORMAL}"
   su "${SUDO_USER}" "${SCRIPT}"
