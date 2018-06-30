@@ -175,7 +175,7 @@ manage_all_apps_prefs_in_folder() {
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     ${2} "${APP_NAME}"
-  done < <(find "${1}" -maxdepth 1 -name "*.app")
+  done < <(find "${1}" -maxdepth 2 -name "*.app")
 }
 
 # Set preferences for all applications
@@ -193,7 +193,7 @@ set_specified_apps_egpu() {
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   echo -e "\n${BOLD}Setting...${NORMAL}"
-  [[ ! -e "/Applications/${INPUT}.app" && ! -e "${HOME}/Applications/${INPUT}.app" ]] && echo -e "Target application does not exist. No action taken.\n" && return
+  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "Target application does not exist. No action taken.\n" && return
   set_app_pref "${INPUT}"
   echo -e "Preferences set.\n"
 }
@@ -218,7 +218,7 @@ reset_specified_apps_prefs() {
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   echo -e "\n${BOLD}Resetting...${NORMAL}"
-  [[ ! -e "/Applications/${INPUT}.app" && ! -e "${HOME}/Applications/${INPUT}.app" ]] && echo -e "Target application does not exist. No action taken.\n" && return
+  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "Target application does not exist. No action taken.\n" && return
   reset_app_pref "${INPUT}"
   echo -e "Reset complete.\n"
 }
@@ -229,7 +229,7 @@ check_app_preferences() {
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   CURRENT_PREF=""
-  [[ ! -e "/Applications/${INPUT}.app" && ! -e "${HOME}/Applications/${INPUT}.app" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
+  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
   BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
   [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${POLICY_KEY} 2>/dev/null)"
   [[ "${CURRENT_PREF}" == "${POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="No preference set."
