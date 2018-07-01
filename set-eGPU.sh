@@ -214,7 +214,7 @@ reset_all_apps_prefs() {
 
 # Reset preferences for specified application
 reset_specified_apps_prefs() {
-  echo -e "\n>> ${BOLD}Reset GPU Preferences for Specified Application(s)${NORMAL}\n"
+  echo -e "\n>> ${BOLD}Set GPU Preference for Specified Application(s)${NORMAL}\n"
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   echo -e "\n${BOLD}Resetting...${NORMAL}"

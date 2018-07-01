@@ -15,7 +15,7 @@ Install set-eGPU.sh:
 curl -s "https://api.github.com/repos/mayankk2308/set-egpu/releases/latest" | grep '"browser_download_url":' | sed -E 's/.*"([^"]+)".*/\1/' | xargs curl -L -s -0 > set-eGPU.sh && chmod +x set-eGPU.sh && ./set-eGPU.sh && rm set-eGPU.sh
 ```
 
-This will automatically install the latest version of **set-eGPU.sh**.
+This will automatically install the latest version of **set-eGPU.sh**. **Administrative privileges** are required *only for installation and software updates*. All other script activity is performed in a *user-privileged* shell automatically.
 
 Alternatively, download [set-eGPU.sh](https://github.com/mayankk2308/set-egpu/releases). Then run the following in **Terminal**:
 ```bash
