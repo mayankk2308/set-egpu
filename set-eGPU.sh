@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.0.1
+# Version: 1.1.0
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="1"
+SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="1" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -40,8 +40,10 @@ MACOS_BUILD="$(sw_vers -buildVersion)"
 IS_HIGH_SIERRA=0
 
 # GPU Policy
-POLICY_KEY="GPUSelectionPolicy"
-POLICY_VALUE="preferRemovable"
+GPU_EJECT_POLICY_KEY="GPUEjectPolicy"
+GPU_EJECT_POLICY_VALUE="relaunch"
+GPU_SELECTION_POLICY_KEY="GPUSelectionPolicy"
+GPU_SELECTION_POLICY_VALUE="preferRemovable"
 
 # ----- SOFTWARE UPDATES & INSTALLATION
 
@@ -147,8 +149,14 @@ check_compatibility() {
 # Generalized set mechanism
 set_app_pref() {
   BUNDLE_ID="${1}"
-  [[ $IS_HIGH_SIERRA == 1 ]] && defaults write "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>&1 && return
-  SafeEjectGPU SetPref "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>/dev/null 1>/dev/null
+  if [[ $IS_HIGH_SIERRA == 1 ]]
+  then
+    defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 2>&1
+    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 2>&1
+    return
+  fi
+  SafeEjectGPU SetPref "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 2>/dev/null 1>/dev/null
+  SafeEjectGPU SetPref "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 2>/dev/null 1>/dev/null
 }
 
 # Generalized reset mechanism
@@ -156,12 +164,13 @@ reset_app_pref() {
   BUNDLE_ID="${1}"
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
-    CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)"
-    [[ -z "${CURRENT_PREF}" ]] && return
-    defaults delete "${BUNDLE_ID}" "${POLICY_KEY}" 1>/dev/null 2>&1
+    CURRENT_GPU_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)"
+    CURRENT_EJECT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 2>/dev/null)"
+    [[ -z "${CURRENT_GPU_PREF}" && -z "${CURRENT_EJECT_PREF}" ]] && return
+    defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
   else
-    BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
-    SafeEjectGPU RemovePref "${BUNDLE_ID}" "${POLICY_KEY}" 1>/dev/null 2>&1
+    SafeEjectGPU RemovePref "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
+    SafeEjectGPU RemovePref "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
   fi
 }
 
@@ -172,59 +181,39 @@ manage_all_apps_prefs_in_folder() {
   do
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
-    ${2} "${APP_NAME}"
+    BUNDLE_ID=$(osascript -e "id of app \"${APP_NAME}\"" 2>/dev/null)
+    [[ -z "${BUNDLE_ID}" ]] && continue
+    "${2}" "${BUNDLE_ID}"
   done < <(find "${1}" -maxdepth 2 -name "*.app")
 }
 
-# Set preferences for all applications
-set_all_apps_egpu() {
-  echo -e "\n>> ${BOLD}Set GPU Preferences for All Applications${NORMAL}\n\n${BOLD}Setting...${NORMAL}"
-  [[ $IS_HIGH_SIERRA == 0 ]] && SafeEjectGPU SetPref - "${POLICY_KEY}" "${POLICY_VALUE}" 1>/dev/null 2>&1 && echo -e "Global preference set.\n" && return
-  manage_all_apps_prefs_in_folder "/Applications" "set_app_pref"
-  manage_all_apps_prefs_in_folder "${HOME}/Applications" "set_app_pref"
-
-  # Guesswork at this time
-  manage_all_apps_prefs_in_folder "/Library/Application Support" "set_app_pref"
-  echo -e "Preferences set.\n"
-}
-
-# Set preferences for specified application
-set_specified_apps_egpu() {
-  echo -e "\n>> ${BOLD}Set GPU Preference for Specified Application(s)${NORMAL}\n"
-  echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
-  IFS= read -p "Enter application name: " INPUT
-  [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
-  [[ -z "$(osascript -e "id of app \"${INPUT}\"")" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
-  echo -e "\n${BOLD}Setting...${NORMAL}"
-  set_app_pref "${INPUT}"
-  echo -e "Preferences set.\n"
-}
-
-# Reset preferences for all applications
-reset_all_apps_prefs() {
-  echo -e "\n>> ${BOLD}Reset GPU Preferences for All Applications${NORMAL}\n\n${BOLD}Resetting...${NORMAL}"
+# Manage preferences for all applications
+manage_all_apps_egpu() {
+  echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications${NORMAL}\n\n${BOLD}${1}ting...${NORMAL}"
+  MESSAGE="$(echo "${1}" | awk '{ print tolower($0) }')"
   if [[ $IS_HIGH_SIERRA == 0 ]]
   then
-    RESET_PREF="$(SafeEjectGPU ResetPrefs 1>/dev/null 2>&1)"
-    [[ ! -z "${RESET_PREF}" ]] && echo -e "An unknown error occurred while resetting preferences." && return
-  else
-    manage_all_apps_prefs_in_folder "/Applications" "reset_app_pref"
-    manage_all_apps_prefs_in_folder "${HOME}/Applications" "reset_app_pref"
-    manage_all_apps_prefs_in_folder "/Library/Application Support" "reset_app_pref"
+    [[ "${1}" == "Set" ]] && set_app_pref "-" 2>&1 && echo -e "Global preference ${MESSAGE}.\n" && return
+    [[ "${1}" == "Reset" ]] && reset_app_pref "-" && echo -e "Global preference ${MESSAGE}.\n" && return
   fi
-  echo -e "Reset complete.\n"
+  manage_all_apps_prefs_in_folder "/Applications" "${2}"
+  manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}"
+  manage_all_apps_prefs_in_folder "/Library/Application Support" "${2}"
+  echo -e "Preferences ${MESSAGE}.\n"
 }
 
-# Reset preferences for specified application
-reset_specified_apps_prefs() {
-  echo -e "\n>> ${BOLD}Reset GPU Preference for Specified Application(s)${NORMAL}\n"
+# Manage preferences for specified application
+manage_specified_apps_egpu() {
+  echo -e "\n>> ${BOLD}${1} GPU Preference for Specified Application(s)${NORMAL}\n"
+  MESSAGE="$(echo "${1}" | awk '{ print tolower($0) }')"
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
-  echo -e "\n${BOLD}Resetting...${NORMAL}"
-  [[ -z "$(osascript -e "id of app \"${TARGET_APP}\"")" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
-  reset_app_pref "${INPUT}"
-  echo -e "Reset complete.\n"
+  BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)
+  [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
+  echo -e "\n${BOLD}${1}ting...${NORMAL}"
+  "${2}" "${BUNDLE_ID}"
+  echo -e "Preferences ${MESSAGE}.\n"
 }
 
 # Check preferences for specified application
@@ -233,11 +222,11 @@ check_app_preferences() {
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
   CURRENT_PREF=""
-  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
-  BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"")
-  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${POLICY_KEY} 2>/dev/null)"
-  [[ "${CURRENT_PREF}" == "${POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="No preference set."
-  [[ "${CURRENT_PREF}" == "${POLICY_KEY}=${POLICY_VALUE}" || "${CURRENT_PREF}" == "${POLICY_VALUE}" ]] && CURRENT_PREF="Prefers external GPUs."
+  BUNDLE_ID=$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)
+  [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
+  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${GPU_SELECTION_POLICY_KEY} 2>/dev/null)"
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="No preference set."
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=${GPU_SELECTION_POLICY_VALUE}" || "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers external GPUs."
   echo -e "\n${BOLD}Status${NORMAL}: ${CURRENT_PREF}\n"
 }
 
@@ -271,15 +260,15 @@ provide_menu_selection() {
 process_args() {
   case "${1}" in
     -sa|--set-all|1)
-    set_all_apps_egpu;;
+    manage_all_apps_egpu "Set" "set_app_pref";;
     -ss|--set-specified|2)
-    set_specified_apps_egpu;;
+    manage_specified_apps_egpu "Set" "set_app_pref";;
     -c|--check|3)
     check_app_preferences;;
     -ra|--reset-all|4)
-    reset_all_apps_prefs;;
+    manage_all_apps_egpu "Reset" "reset_app_pref";;
     -rs|--reset-specified|5)
-    reset_specified_apps_prefs;;
+    manage_specified_apps_egpu "Reset" "reset_app_pref";;
     6)
     echo && exit;;
     "")

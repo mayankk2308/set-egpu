@@ -29,6 +29,8 @@ On first-time use, the script will auto-install itself as a binary into `/usr/lo
 set-eGPU
 ```
 
+It is worth noting that **macOS Mojave** uses a completely different and more potent mechanism for setting eGPU application preference, but is in **beta** stage. This script completely supports that mechanism, but due to Mojave being in **beta**, the underlying mechanism has bugs and other issues.
+
 ## Options
 The script provides users with a variety of options in an attempt to be as user-friendly as possible - as a numbered menu. Advanced users may pass arguments to bypass the menu.
 
