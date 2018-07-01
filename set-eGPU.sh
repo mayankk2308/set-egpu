@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.0.0
+# Version: 1.0.1
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="0"
+SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="1"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -146,16 +146,14 @@ check_compatibility() {
 
 # Generalized set mechanism
 set_app_pref() {
-  TARGET_APP="${1}"
-  BUNDLE_ID=$(osascript -e "id of app \"${TARGET_APP}\"")
+  BUNDLE_ID="${1}"
   [[ $IS_HIGH_SIERRA == 1 ]] && defaults write "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>&1 && return
   SafeEjectGPU SetPref "${BUNDLE_ID}" "${POLICY_KEY}" "${POLICY_VALUE}" 2>/dev/null 1>/dev/null
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
-  TARGET_APP="${1}"
-  BUNDLE_ID=$(osascript -e "id of app \"${TARGET_APP}\"")
+  BUNDLE_ID="${1}"
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
     CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${POLICY_KEY}" 2>/dev/null)"
@@ -184,16 +182,20 @@ set_all_apps_egpu() {
   [[ $IS_HIGH_SIERRA == 0 ]] && SafeEjectGPU SetPref - "${POLICY_KEY}" "${POLICY_VALUE}" 1>/dev/null 2>&1 && echo -e "Global preference set.\n" && return
   manage_all_apps_prefs_in_folder "/Applications" "set_app_pref"
   manage_all_apps_prefs_in_folder "${HOME}/Applications" "set_app_pref"
+
+  # Guesswork at this time
+  manage_all_apps_prefs_in_folder "/Library/Application Support" "set_app_pref"
   echo -e "Preferences set.\n"
 }
 
 # Set preferences for specified application
 set_specified_apps_egpu() {
-  echo -e "\n>> ${BOLD}Reset GPU Preferences for Specified Application(s)${NORMAL}\n"
+  echo -e "\n>> ${BOLD}Set GPU Preference for Specified Application(s)${NORMAL}\n"
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
+  [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
+  [[ -z "$(osascript -e "id of app \"${INPUT}\"")" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
   echo -e "\n${BOLD}Setting...${NORMAL}"
-  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "Target application does not exist. No action taken.\n" && return
   set_app_pref "${INPUT}"
   echo -e "Preferences set.\n"
 }
@@ -208,17 +210,19 @@ reset_all_apps_prefs() {
   else
     manage_all_apps_prefs_in_folder "/Applications" "reset_app_pref"
     manage_all_apps_prefs_in_folder "${HOME}/Applications" "reset_app_pref"
+    manage_all_apps_prefs_in_folder "/Library/Application Support" "reset_app_pref"
   fi
   echo -e "Reset complete.\n"
 }
 
 # Reset preferences for specified application
 reset_specified_apps_prefs() {
-  echo -e "\n>> ${BOLD}Set GPU Preference for Specified Application(s)${NORMAL}\n"
+  echo -e "\n>> ${BOLD}Reset GPU Preference for Specified Application(s)${NORMAL}\n"
   echo "Please use the ${BOLD}exact${NORMAL} application name as seen in Launchpad."
   IFS= read -p "Enter application name: " INPUT
+  [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
   echo -e "\n${BOLD}Resetting...${NORMAL}"
-  [[ -z "$(find /Applications -maxdepth 2 -name "${INPUT}.app")" && -z ""$(find ${HOME}/Applications -maxdepth 2 -name "${INPUT}.app")"" ]] && echo -e "Target application does not exist. No action taken.\n" && return
+  [[ -z "$(osascript -e "id of app \"${TARGET_APP}\"")" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
   reset_app_pref "${INPUT}"
   echo -e "Reset complete.\n"
 }
