@@ -45,6 +45,9 @@ GPU_EJECT_POLICY_VALUE="relaunch"
 GPU_SELECTION_POLICY_KEY="GPUSelectionPolicy"
 GPU_SELECTION_POLICY_VALUE="preferRemovable"
 
+# Exempt App Location(s)
+UTILITIES="/Applications/Utilities"
+
 # ----- SOFTWARE UPDATES & INSTALLATION
 
 # Elevate privileges
@@ -179,12 +182,13 @@ manage_all_apps_prefs_in_folder() {
   [[ ! -d "${1}" ]] && return
   while read APP
   do
+    [[ "${APP}" =~ "${UTILITIES}" ]] && continue
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     BUNDLE_ID=$(osascript -e "id of app \"${APP_NAME}\"" 2>/dev/null)
     [[ -z "${BUNDLE_ID}" ]] && continue
     "${2}" "${BUNDLE_ID}"
-  done < <(find "${1}" -maxdepth 2 -name "*.app")
+  done < <(find "${1}" -name "*.app")
 }
 
 # Manage preferences for all applications
