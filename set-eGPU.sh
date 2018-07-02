@@ -298,8 +298,10 @@ print_current_preferences() {
 # Check preferences for specified application
 check_app_preferences() {
   echo -e "\n>> ${BOLD}Check Application eGPU Preference${NORMAL}\n"
+  echo -e "Acronyms must be ${BOLD}all uppercase${NORMAL}.\nPartial names will return a list of possible applications.\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nPlease enter an application name.\n" && return
+  [[ "${INPUT}" == "quit" ]] && echo && return
   GENERALIZED_APP_NAME=""
   BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
   [[ ! -z "${BUNDLE_ID}" ]] && echo && print_current_preferences "${BUNDLE_ID}" "${INPUT}" && echo && return
