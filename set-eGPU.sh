@@ -186,7 +186,7 @@ manage_all_apps_prefs_in_folder() {
   while read APP
   do
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    BUNDLE_ID=$(osascript -e "id of app \"${APP}\"" 2>/dev/null)
+    BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     [[ -z "${BUNDLE_ID}" ]] && continue
     "${2}" "${BUNDLE_ID}"
   done < <(find "${1}" -name "*.app" -prune 2>/dev/null)
@@ -214,7 +214,7 @@ manage_pref_for_found_app() {
   local FUNCTION="${3}"
   local APP_PRINT_NAME="${APP_PATH##*/}"
   local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
-  BUNDLE_ID=$(osascript -e "id of app \"${APP_PATH}\"" 2>/dev/null)
+  BUNDLE_ID="$(osascript -e "id of app \"${APP_PATH}\"" 2>/dev/null)"
   [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
   echo -e "\n${BOLD}${INTENT}ting preference for ${APP_PRINT_NAME}...${NORMAL}"
   "${FUNCTION}" "${BUNDLE_ID}"
@@ -242,6 +242,16 @@ manage_specified_apps_egpu() {
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
+  BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
+  if [[ ! -z "${BUNDLE_ID}" ]]
+  then
+    MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
+    echo -e "\n${BOLD}${1}ting preference for ${INPUT}...${NORMAL}"
+    "${2}" "${BUNDLE_ID}"
+    echo -e "Preferences ${MESSAGE}.\n"
+    return
+  fi
+  echo -e "\n${BOLD}Searching for possible matches...${NORMAL}"
   GENERALIZED_APP_NAME=""
   shopt -u nocasematch
   if [[ ! "${INPUT}" =~ [a-z] && ! "${INPUT}" =~ " " ]]
@@ -256,7 +266,7 @@ manage_specified_apps_egpu() {
   while read APP
   do
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo -e "\n${BOLD}Possible Matches${NORMAL}:"
+    [[ $APP_COUNT == 0 ]] && echo -e "Search complete.\n\n${BOLD}Possible Matches${NORMAL}:"
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     APPS_LIST+=("${APP}")
@@ -275,12 +285,25 @@ manage_specified_apps_egpu() {
   APPS_LIST=()
 }
 
+print_current_preferences() {
+  BUNDLE_ID="${1}"
+  CURRENT_APP="${2}"
+  CURRENT_PREF=""
+  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${GPU_SELECTION_POLICY_KEY} 2>/dev/null)"
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=${GPU_SELECTION_POLICY_VALUE}" || "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
+  echo -e "${BOLD}${CURRENT_APP}${NORMAL} ${CURRENT_PREF}"
+}
+
 # Check preferences for specified application
 check_app_preferences() {
   echo -e "\n>> ${BOLD}Check Application eGPU Preference${NORMAL}\n"
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nPlease enter an application name.\n" && return
   GENERALIZED_APP_NAME=""
+  BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
+  [[ ! -z "${BUNDLE_ID}" ]] && echo && print_current_preferences "${BUNDLE_ID}" "${INPUT}" && echo && return
+  echo -e "\n${BOLD}Searching for possible matches...${NORMAL}"
   shopt -u nocasematch
   if [[ ! "${INPUT}" =~ [a-z] && ! "${INPUT}" =~ " " ]]
   then
@@ -294,17 +317,13 @@ check_app_preferences() {
   while read APP
   do
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo
+    [[ $APP_COUNT == 0 ]] && echo -e "Search complete.\n"
     (( APP_COUNT++ ))
-    BUNDLE_ID=$(osascript -e "id of app \"${APP}\"" 2>/dev/null)
+    BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
-    CURRENT_PREF=""
-    [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${GPU_SELECTION_POLICY_KEY} 2>/dev/null)"
-    [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
-    [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=${GPU_SELECTION_POLICY_VALUE}" || "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
-    echo -e "${BOLD}${APP_NAME}${NORMAL} ${CURRENT_PREF}"
+    print_current_preferences "${BUNDLE_ID}" "${APP_NAME}"
   done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}")
   echo
   (( APP_COUNT == 0 )) && echo -e "No matching applications found for your search.\n"
