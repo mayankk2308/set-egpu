@@ -32,7 +32,11 @@ set-eGPU
 It is worth noting that **macOS Mojave** uses a completely different and more potent mechanism for setting eGPU application preference, but is in **beta** stage. This script completely supports that mechanism, but due to Mojave being in **beta**, the underlying mechanism has bugs and other issues.
 
 ## Options
-The script provides users with a variety of options in an attempt to be as user-friendly as possible - as a numbered menu. Advanced users may pass arguments to bypass the menu.
+Set-eGPU makes it super-easy to perform actions with an interactive menu, and is recommended for most users. Providing no arguments to the script defaults to the menu.
+
+![Set-eGPU Menu](https://raw.githubusercontent.com/mayankk2308/set-egpu/master/resources/set-egpu-menu.png)
+
+For advanced users that may sometimes prefer bypassing the menu, the script provides convenient arguments in an attempt to be as user-friendly as possible.
 
 #### 1. Set eGPU Preference for All Applications (`-sa|--set-all`)
 Checks all available applications and sets their GPU preference to use eGPUs.
