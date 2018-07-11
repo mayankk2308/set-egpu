@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.1.0
+# Version: 1.1.1
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="1" && SCRIPT_PATCH_VER="0"
+SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="1" && SCRIPT_PATCH_VER="1"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -77,10 +77,11 @@ perform_software_update() {
 
 # Prompt for update
 prompt_software_update() {
+  echo
   read -p "${BOLD}Would you like to update?${NORMAL} [Y/N]: " INPUT
   [[ "${INPUT}" == "Y" ]] && echo && perform_software_update && return
   [[ "${INPUT}" == "N" ]] && echo -e "\n${BOLD}Proceeding without updating...${NORMAL}" && return
-  echo -e "\nInvalid choice. Try again.\n"
+  echo -e "\nInvalid choice. Try again."
   prompt_software_update
 }
 
@@ -266,20 +267,21 @@ manage_specified_apps_egpu() {
   while read APP
   do
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo -e "Search complete.\n\n${BOLD}Possible Matches${NORMAL}:"
+    [[ $APP_COUNT == 0 ]] && echo -e "\n${BOLD}Possible Matches${NORMAL}:"
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     APPS_LIST+=("${APP}")
     (( APP_COUNT++ ))
     printf "${BOLD}%-3d${NORMAL}:  %-s\n" "${APP_COUNT}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}")
-  echo
+  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
   case $APP_COUNT in
     0)
-    echo -e "No matches found for this application.\n";;
+    echo -e "No matches found for your search.\n";;
     1)
+    echo -e "\nSearch complete."
     manage_pref_for_found_app "${APPS_LIST[0]}" "${1}" "${2}";;
     *)
+    echo -e "\nSearch complete."
     request_specific_app "${1}" "${2}";;
   esac
   APPS_LIST=()
@@ -319,16 +321,15 @@ check_app_preferences() {
   while read APP
   do
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo -e "Search complete.\n"
+    [[ $APP_COUNT == 0 ]] && echo
     (( APP_COUNT++ ))
     BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     print_current_preferences "${BUNDLE_ID}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}")
-  echo
-  (( APP_COUNT == 0 )) && echo -e "No matching applications found for your search.\n"
+  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+  (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
 }
 
 # ----- DRIVER
@@ -350,9 +351,10 @@ provide_menu_selection() {
    ${BOLD}3.${NORMAL}  Check Application eGPU Preference
    ${BOLD}4.${NORMAL}  Reset GPU Preferences for All Applications
    ${BOLD}5.${NORMAL}  Reset GPU Preferences for Specified Application(s)
-   ${BOLD}6.${NORMAL}  Quit
+
+   ${BOLD}0.${NORMAL}  Quit
   "
-  read -p "${BOLD}What next?${NORMAL} [1-6]: " INPUT
+  read -p "${BOLD}What next?${NORMAL} [0-5]: " INPUT
   if [[ ! -z "${INPUT}" ]]
   then
     process_args "${INPUT}"
@@ -375,7 +377,7 @@ process_args() {
     manage_all_apps_egpu "Reset" "reset_app_pref";;
     -rs|--reset-specified|5)
     manage_specified_apps_egpu "Reset" "reset_app_pref";;
-    6)
+    0)
     echo && exit;;
     "")
     start_install
