@@ -60,3 +60,11 @@ Run your application and check **Activity Monitor** > Window > GPU History **(âŒ
 
 ## License
 See the license file for more information.
+
+## Donate
+A *thank you*Â suffices, but for those kind souls who would love to contribute:
+
+[![paypal][image-1]][1]
+
+[image-1]:	https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif
+[1]:	https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=mayankk2308@gmail.com&lc=US&item_name=mac_editor&no_note=0&currency_code=USD&bn=PP-DonationsBF:btn_donate_SM.gif:NonHostedGuest
