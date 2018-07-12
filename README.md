@@ -1,6 +1,6 @@
 ![Header](https://raw.githubusercontent.com/mayankk2308/set-egpu/master/resources/header.png)
 
-![macOS Support](https://img.shields.io/badge/macOS-10.13.4+-orange.svg?style=for-the-badge) ![Github All Releases](https://img.shields.io/github/downloads/mayankk2308/set-egpu/total.svg?style=for-the-badge)
+![macOS Support](https://img.shields.io/badge/macOS-10.13.4+-orange.svg?style=for-the-badge) ![Github All Releases](https://img.shields.io/github/downloads/mayankk2308/set-egpu/total.svg?style=for-the-badge) [![paypal][image-1]][1]
 # Set-eGPU
 Allows you to set graphics preferences for macOS applications, and force use of external GPUs, even on internal displays.
 
