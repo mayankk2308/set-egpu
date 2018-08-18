@@ -47,6 +47,7 @@ GPU_SELECTION_POLICY_VALUE="preferRemovable"
 
 # PlistBuddy
 PlistBuddy="/usr/libexec/PlistBuddy"
+GPU_PLIST="${HOME}/Library/Preferences/com.apple.gpu.plist"
 
 # Exempt App Location(s)
 UTILITIES="/Applications/Utilities"
@@ -159,33 +160,36 @@ check_compatibility() {
 # Generalized set mechanism
 set_app_pref() {
   BUNDLE_ID="${1}"
+  LAST_CHAR="${BUNDLE_ID: -1}"
+  if [[ "${LAST_CHAR}" == ":" ]]
+  then
+    BUNDLE_ID="${BUNDLE_ID%?}"
+  fi
   if [[ $IS_HIGH_SIERRA == 1 ]]
   then
-    defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 2>&1
-    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 2>&1
+    defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
+    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
     return
   fi
-  SafeEjectGPU SetPref "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 2>/dev/null 1>/dev/null
-  SafeEjectGPU SetPref "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 2>/dev/null 1>/dev/null
+  $PlistBuddy -c "Add ${BUNDLE_ID}:${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${GPU_PLIST}" 1>/dev/null 2>&1
+  $PlistBuddy -c "Add ${BUNDLE_ID}:${GPU_EJECT_POLICY_KEY} string ${GPU_EJECT_POLICY_VALUE}" "${GPU_PLIST}" 1>/dev/null 2>&1
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
   BUNDLE_ID="${1}"
-  if [[ $IS_HIGH_SIERRA == 1 ]]
+  LAST_CHAR="${BUNDLE_ID: -1}"
+  if [[ "${LAST_CHAR}" == ":" ]]
   then
-    CURRENT_GPU_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)"
-    CURRENT_EJECT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 2>/dev/null)"
-    [[ -z "${CURRENT_GPU_PREF}" && -z "${CURRENT_EJECT_PREF}" ]] && return
-    defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-  else
-    SafeEjectGPU RemovePref "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-    SafeEjectGPU RemovePref "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
+    BUNDLE_ID="${BUNDLE_ID%?}"
   fi
+  defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
+  $PlistBuddy -c "Delete ${BUNDLE_ID}" "${GPU_PLIST}" 1>/dev/null 2>&1
 }
 
 # Generic preference manageme for apps in given folder
 manage_all_apps_prefs_in_folder() {
+  COUNT=0
   [[ ! -d "${1}" ]] && return
   while read APP
   do
@@ -193,6 +197,12 @@ manage_all_apps_prefs_in_folder() {
     BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     [[ -z "${BUNDLE_ID}" ]] && continue
     "${2}" "${BUNDLE_ID}"
+    (( COUNT++ ))
+    if [[ $COUNT == 5 ]]
+    then
+      COUNT=0
+      echo -en "◼"
+    fi
   done < <(find "${1}" -name "*.app" -prune 2>/dev/null)
 }
 
@@ -200,21 +210,10 @@ manage_all_apps_prefs_in_folder() {
 manage_all_apps_egpu() {
   echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications${NORMAL}\n\n${BOLD}${1}ting...${NORMAL}"
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
-  if [[ $IS_HIGH_SIERRA == 0 ]]
-  then
-    if [[ "${1}" == "Set" ]]
-    then
-      set_app_pref "-"
-    else
-      reset_app_pref "-"
-    fi
-    echo -e "Global preference ${MESSAGE}.\n"
-    return
-  fi
   manage_all_apps_prefs_in_folder "/Applications" "${2}"
   manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}"
   manage_all_apps_prefs_in_folder "${HOME}/Library" "${2}"
-  echo -e "Preferences ${MESSAGE}.\n"
+  echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
 manage_pref_for_found_app() {
@@ -300,9 +299,14 @@ print_current_preferences() {
   BUNDLE_ID="${1}"
   CURRENT_APP="${2}"
   CURRENT_PREF=""
-  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$(SafeEjectGPU evalPref ${BUNDLE_ID} ${GPU_SELECTION_POLICY_KEY} 2>/dev/null)"
-  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=<not set>" || -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
-  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_KEY}=${GPU_SELECTION_POLICY_VALUE}" || "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
+  LAST_CHAR="${BUNDLE_ID: -1}"
+  if [[ "${LAST_CHAR}" == ":" ]]
+  then
+    BUNDLE_ID="${BUNDLE_ID%?}"
+  fi
+  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$($PlistBuddy -c "Print ${BUNDLE_ID}:${GPU_SELECTION_POLICY_KEY}" "${GPU_PLIST}" 2>/dev/null)"
+  [[ -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
   echo -e "${BOLD}${CURRENT_APP}${NORMAL} ${CURRENT_PREF}"
 }
 
