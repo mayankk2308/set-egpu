@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.1.1
+# Version: 1.2.0
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="1" && SCRIPT_PATCH_VER="1"
+SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="2" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -44,6 +44,9 @@ GPU_EJECT_POLICY_KEY="GPUEjectPolicy"
 GPU_EJECT_POLICY_VALUE="relaunch"
 GPU_SELECTION_POLICY_KEY="GPUSelectionPolicy"
 GPU_SELECTION_POLICY_VALUE="preferRemovable"
+
+# PlistBuddy
+PlistBuddy="/usr/libexec/PlistBuddy"
 
 # Exempt App Location(s)
 UTILITIES="/Applications/Utilities"
@@ -199,8 +202,14 @@ manage_all_apps_egpu() {
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
   if [[ $IS_HIGH_SIERRA == 0 ]]
   then
-    [[ "${1}" == "Set" ]] && set_app_pref "-" 2>&1 && echo -e "Global preference ${MESSAGE}.\n" && return
-    [[ "${1}" == "Reset" ]] && reset_app_pref "-" && echo -e "Global preference ${MESSAGE}.\n" && return
+    if [[ "${1}" == "Set" ]]
+    then
+      set_app_pref "-"
+    else
+      reset_app_pref "-"
+    fi
+    echo -e "Global preference ${MESSAGE}.\n"
+    return
   fi
   manage_all_apps_prefs_in_folder "/Applications" "${2}"
   manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}"
@@ -332,6 +341,20 @@ check_app_preferences() {
   (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
 }
 
+# Uninstall Set-eGPU
+uninstall() {
+  echo -e "\n>> ${BOLD}Uninstall Set-eGPU${NORMAL}\n"
+  echo -e "This process will ${BOLD}reset preferences for all applications${NORMAL},\nand ${BOLD}remove set-eGPU${NORMAL} from your system if present.\n"
+  read -p "${BOLD}Proceed?${NORMAL} [Y/N]: " INPUT
+  if [[ ! -z "${INPUT}" ]]
+  then
+    manage_all_apps_egpu "Reset" "reset_app_pref"
+    [[ -e "${SCRIPT_BIN}" ]] && rm "${SCRIPT_BIN}" && echo -e "Removal successful.\n" && exit
+  else
+    echo -e "\nAborting.\n"
+  fi
+}
+
 # ----- DRIVER
 
 # Ask for main menu
@@ -351,10 +374,11 @@ provide_menu_selection() {
    ${BOLD}3.${NORMAL}  Check Application eGPU Preference
    ${BOLD}4.${NORMAL}  Reset GPU Preferences for All Applications
    ${BOLD}5.${NORMAL}  Reset GPU Preferences for Specified Application(s)
+   ${BOLD}6.${NORMAL}  Uninstall Set-eGPU
 
    ${BOLD}0.${NORMAL}  Quit
   "
-  read -p "${BOLD}What next?${NORMAL} [0-5]: " INPUT
+  read -p "${BOLD}What next?${NORMAL} [0-6]: " INPUT
   if [[ ! -z "${INPUT}" ]]
   then
     process_args "${INPUT}"
@@ -377,6 +401,8 @@ process_args() {
     manage_all_apps_egpu "Reset" "reset_app_pref";;
     -rs|--reset-specified|5)
     manage_specified_apps_egpu "Reset" "reset_app_pref";;
+    -u|--uninstall|6)
+    uninstall;;
     0)
     echo && exit;;
     "")
