@@ -193,26 +193,23 @@ manage_all_apps_prefs_in_folder() {
   [[ ! -d "${1}" ]] && return
   while read APP
   do
-    [[ "${APP}" =~ "${UTILITIES}" ]] && continue
+    [[ -z "${APP}" || "${APP}" =~ "${UTILITIES}" ]] && continue
     BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     [[ -z "${BUNDLE_ID}" ]] && continue
     "${2}" "${BUNDLE_ID}"
     (( COUNT++ ))
-    if [[ $COUNT == 5 ]]
-    then
-      COUNT=0
-      echo -en "◼"
-    fi
-  done < <(find "${1}" -name "*.app" -prune 2>/dev/null)
+    (( $COUNT % 5 == 0 )) && echo -en "◼"
+  done < <(find "${1}" -type d -name "*.app" -prune 2>/dev/null)
 }
 
 # Manage preferences for all applications
 manage_all_apps_egpu() {
   echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications${NORMAL}\n\n${BOLD}${1}ting...${NORMAL}"
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
-  manage_all_apps_prefs_in_folder "/Applications" "${2}"
-  manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}"
-  manage_all_apps_prefs_in_folder "${HOME}/Library" "${2}"
+  manage_all_apps_prefs_in_folder "/Applications" "${2}" &
+  manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}" &
+  manage_all_apps_prefs_in_folder "${HOME}/Library/Application Support" "${2}" &
+  wait
   echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
@@ -281,7 +278,7 @@ manage_specified_apps_egpu() {
     APPS_LIST+=("${APP}")
     (( APP_COUNT++ ))
     printf "${BOLD}%-3d${NORMAL}:  %-s\n" "${APP_COUNT}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
   case $APP_COUNT in
     0)
     echo -e "No matches found for your search.\n";;
@@ -341,7 +338,7 @@ check_app_preferences() {
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
     print_current_preferences "${BUNDLE_ID}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
   (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
 }
 
