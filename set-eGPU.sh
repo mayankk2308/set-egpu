@@ -37,7 +37,6 @@ NORMAL="$(tput sgr0)"
 # System information
 MACOS_VER="$(sw_vers -productVersion)"
 MACOS_BUILD="$(sw_vers -buildVersion)"
-IS_HIGH_SIERRA=0
 
 # GPU Policy
 GPU_EJECT_POLICY_KEY="GPUEjectPolicy"
@@ -152,7 +151,6 @@ check_compatibility() {
   MACOS_MAJOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f2)"
   MACOS_MINOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f3)"
   [[ ("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
-  [[ "${MACOS_MAJOR_VER}" == 13 ]] && IS_HIGH_SIERRA=1
 }
 
 # ----- APPLICATION PREFERENCES MANAGER
@@ -165,14 +163,8 @@ set_app_pref() {
   then
     BUNDLE_ID="${BUNDLE_ID%?}"
   fi
-  if [[ $IS_HIGH_SIERRA == 1 ]]
-  then
-    defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
-    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
-    return
-  fi
-  $PlistBuddy -c "Add ${BUNDLE_ID}:${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${GPU_PLIST}" 1>/dev/null 2>&1
-  $PlistBuddy -c "Add ${BUNDLE_ID}:${GPU_EJECT_POLICY_KEY} string ${GPU_EJECT_POLICY_VALUE}" "${GPU_PLIST}" 1>/dev/null 2>&1
+  defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
+  defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
 }
 
 # Generalized reset mechanism
@@ -184,7 +176,6 @@ reset_app_pref() {
     BUNDLE_ID="${BUNDLE_ID%?}"
   fi
   defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-  $PlistBuddy -c "Delete ${BUNDLE_ID}" "${GPU_PLIST}" 1>/dev/null 2>&1
 }
 
 # Generic preference manageme for apps in given folder
@@ -301,7 +292,7 @@ print_current_preferences() {
   then
     BUNDLE_ID="${BUNDLE_ID%?}"
   fi
-  [[ $IS_HIGH_SIERRA == 1 ]] && CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)" || CURRENT_PREF="$($PlistBuddy -c "Print ${BUNDLE_ID}:${GPU_SELECTION_POLICY_KEY}" "${GPU_PLIST}" 2>/dev/null)"
+  CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)"
   [[ -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
   [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
   echo -e "${BOLD}${CURRENT_APP}${NORMAL} ${CURRENT_PREF}"
@@ -310,7 +301,7 @@ print_current_preferences() {
 # Check preferences for specified application
 check_app_preferences() {
   echo -e "\n>> ${BOLD}Check Application eGPU Preference${NORMAL}\n"
-  echo -e "Acronyms must be ${BOLD}all uppercase${NORMAL}.\nPartial names will return a list of possible applications.\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
+  echo -e "Acronyms must be ${BOLD}all uppercase${NORMAL} (ex. '${BOLD}FCP${NORMAL}').\nPartial names return a list of possible applications (ex. '${BOLD}adobe${NORMAL}').\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nPlease enter an application name.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
