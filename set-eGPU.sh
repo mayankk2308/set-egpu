@@ -179,7 +179,7 @@ reset_app_pref() {
   defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
 }
 
-# Generic preference manageme for apps in given folder
+# Generic preference management for apps in given folder
 manage_all_apps_prefs_in_folder() {
   COUNT=0
   [[ ! -d "${1}" ]] && return
