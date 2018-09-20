@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.2.0
+# Version: 1.2.1
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="2" && SCRIPT_PATCH_VER="0"
+SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="2" && SCRIPT_PATCH_VER="1"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -176,6 +176,7 @@ reset_app_pref() {
     BUNDLE_ID="${BUNDLE_ID%?}"
   fi
   defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
+  defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
 }
 
 # Generic preference manageme for apps in given folder
@@ -212,7 +213,7 @@ manage_pref_for_found_app() {
   local APP_PRINT_NAME="${APP_PATH##*/}"
   local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
   BUNDLE_ID="$(osascript -e "id of app \"${APP_PATH}\"" 2>/dev/null)"
-  [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
+  [[ -z "${BUNDLE_ID}" || "${BUNDLE_ID}" == "????" ]] && echo -e "\nCould not find bundle ID. No action taken.\n" && return
   echo -e "\n${BOLD}${INTENT}ting preference for ${APP_PRINT_NAME}...${NORMAL}"
   "${FUNCTION}" "${BUNDLE_ID}"
   echo -e "Preferences ${MESSAGE}.\n"
@@ -234,13 +235,13 @@ request_specific_app() {
 # Manage preferences for specified application
 manage_specified_apps_egpu() {
   echo -e "\n>> ${BOLD}${1} GPU Preference for Specified Application(s)${NORMAL}\n"
-  echo -e "Acronyms must be ${BOLD}all uppercase${NORMAL}.\nPartial names will return a list of possible applications.\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
+  echo -e "Only ${BOLD}uppercase${NORMAL} input are treated as acronyms (ex. '${BOLD}FCP${NORMAL}').\nPartial names return a list of possible applications (ex. '${BOLD}adobe${NORMAL}').\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
   BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
-  if [[ ! -z "${BUNDLE_ID}" ]]
+  if [[ ! -z "${BUNDLE_ID}" && "${BUNDLE_ID}" != "????" ]]
   then
     MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
     echo -e "\n${BOLD}${1}ting preference for ${INPUT}...${NORMAL}"
@@ -293,21 +294,20 @@ print_current_preferences() {
     BUNDLE_ID="${BUNDLE_ID%?}"
   fi
   CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)"
-  [[ -z "${CURRENT_PREF}" ]] && CURRENT_PREF="does not prefer eGPUs."
-  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="prefers external GPUs."
-  echo -e "${BOLD}${CURRENT_APP}${NORMAL} ${CURRENT_PREF}"
+  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers eGPU" || CURRENT_PREF="Not Set"
+  echo -e "${BOLD}${CURRENT_APP}${NORMAL}: ${CURRENT_PREF}"
 }
 
 # Check preferences for specified application
 check_app_preferences() {
   echo -e "\n>> ${BOLD}Check Application eGPU Preference${NORMAL}\n"
-  echo -e "Acronyms must be ${BOLD}all uppercase${NORMAL} (ex. '${BOLD}FCP${NORMAL}').\nPartial names return a list of possible applications (ex. '${BOLD}adobe${NORMAL}').\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
+  echo -e "Only ${BOLD}uppercase${NORMAL} input are treated as acronyms (ex. '${BOLD}FCP${NORMAL}').\nPartial names return a list of possible applications (ex. '${BOLD}adobe${NORMAL}').\nType ${BOLD}'QUIT'${NORMAL} to exit this submenu.\n"
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nPlease enter an application name.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
   GENERALIZED_APP_NAME=""
   BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
-  [[ ! -z "${BUNDLE_ID}" ]] && echo && print_current_preferences "${BUNDLE_ID}" "${INPUT}" && echo && return
+  [[ ! -z "${BUNDLE_ID}" && "${BUNDLE_ID}" != "????" ]] && echo && print_current_preferences "${BUNDLE_ID}" "${INPUT}" && echo && return
   echo -e "\n${BOLD}Searching for possible matches...${NORMAL}"
   shopt -u nocasematch
   if [[ ! "${INPUT}" =~ [a-z] && ! "${INPUT}" =~ " " ]]
@@ -325,9 +325,9 @@ check_app_preferences() {
     [[ $APP_COUNT == 0 ]] && echo
     (( APP_COUNT++ ))
     BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
-    [[ -z "${BUNDLE_ID}" ]] && echo -e "\nTarget application does not exist. No action taken.\n" && return
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
+    [[ -z "${BUNDLE_ID}" || "${BUNDLE_ID}" == "????" ]] && echo -e "${BOLD}${APP_NAME}${NORMAL}: No Configuration Available" && continue
     print_current_preferences "${BUNDLE_ID}" "${APP_NAME}"
   done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
   (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
