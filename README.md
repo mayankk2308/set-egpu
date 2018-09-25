@@ -9,6 +9,8 @@ This script requires the following specifications:
 * Mac running external GPU
 * **macOS 10.13.4** or later
 
+**Note:** Mojave has this built-in. For some reason, Mojave does not adhere to **plist** values anymore. For the time being, set-eGPU functionality will not affect apps on Mojave. This is odd even though it is documented in Mojave.
+
 ## Usage
 Install set-eGPU.sh:
 ```bash
