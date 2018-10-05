@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 1.2.1
+# Version: 2.0.0
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="1" && SCRIPT_MINOR_VER="2" && SCRIPT_PATCH_VER="1"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 
 # User input
@@ -39,8 +39,6 @@ MACOS_VER="$(sw_vers -productVersion)"
 MACOS_BUILD="$(sw_vers -buildVersion)"
 
 # GPU Policy
-GPU_EJECT_POLICY_KEY="GPUEjectPolicy"
-GPU_EJECT_POLICY_VALUE="relaunch"
 GPU_SELECTION_POLICY_KEY="GPUSelectionPolicy"
 GPU_SELECTION_POLICY_VALUE="preferRemovable"
 
@@ -53,6 +51,8 @@ UTILITIES="/Applications/Utilities"
 
 # Found application(s) history
 APPS_LIST=()
+SEARCH_PATHS=("/Applications/" "/Users/${SUDO_USER}/Applications/" "/Users/${SUDO_USER}/Library/Application Support/")
+PlistBuddy="/usr/libexec/PlistBuddy"
 
 # ----- SOFTWARE UPDATES & INSTALLATION
 
@@ -69,19 +69,21 @@ elevate_privileges() {
 perform_software_update() {
   echo -e "${BOLD}Downloading...${NORMAL}"
   curl -L -s "${LATEST_RELEASE_DWLD}" > "${TMP_SCRIPT}"
+  [[ "$(cat "${TMP_SCRIPT}")" == "Not Found" ]] && echo -e "Download failed.\n${BOLD}Continuing without updating...${NORMAL}" && sleep 1 && rm "${TMP_SCRIPT}" && return
   echo -e "Download complete.\n${BOLD}Updating...${NORMAL}"
   chmod 700 "${TMP_SCRIPT}" && chmod +x "${TMP_SCRIPT}"
   rm "${SCRIPT}" && mv "${TMP_SCRIPT}" "${SCRIPT}"
   chown "${SUDO_USER}" "${SCRIPT}"
   echo -e "Update complete. ${BOLD}Relaunching...${NORMAL}"
-  su "${SUDO_USER}" "${SCRIPT}"
+  sleep 1
+  "${SCRIPT}"
   exit
 }
 
 # Prompt for update
 prompt_software_update() {
   echo
-  read -p "${BOLD}Would you like to update?${NORMAL} [Y/N]: " INPUT
+  read -n1 -p "${BOLD}Would you like to update?${NORMAL} [Y/N]: " INPUT
   [[ "${INPUT}" == "Y" ]] && echo && perform_software_update && return
   [[ "${INPUT}" == "N" ]] && echo -e "\n${BOLD}Proceeding without updating...${NORMAL}" && return
   echo -e "\nInvalid choice. Try again."
@@ -99,7 +101,6 @@ fetch_latest_release() {
   LATEST_PATCH_VER="$(echo -e "${LATEST_RELEASE_VER}" | cut -d '.' -f3)"
   if [[ $LATEST_MAJOR_VER > $SCRIPT_MAJOR_VER || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER > $SCRIPT_MINOR_VER) || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER == $SCRIPT_MINOR_VER && $LATEST_PATCH_VER > $SCRIPT_PATCH_VER) && "$LATEST_RELEASE_DWLD" ]]
   then
-    elevate_privileges
     echo -e "\n>> ${BOLD}Software Update${NORMAL}\n\nA script update (${BOLD}${LATEST_RELEASE_VER}${NORMAL}) is available.\nYou are currently on ${BOLD}${SCRIPT_VER}${NORMAL}."
     prompt_software_update
   fi
@@ -141,7 +142,7 @@ start_install() {
 
 # Check caller
 validate_caller() {
-  [[ "$1" == "sh" && ! "$2" ]] && echo -e "\n${BOLD}Cannot execute${NORMAL}.\nPlease see the README for instructions.\n" && exit
+  [[ "$1" == "bash" && ! "$2" ]] && echo -e "\n${BOLD}Cannot execute${NORMAL}.\nPlease see the README for instructions.\n" && exit
   [[ "$1" != "$SCRIPT" ]] && OPTION="$3" || OPTION="$2"
   [[ "$SCRIPT" == "$SCRIPT_BIN" || "$SCRIPT" == "set-eGPU" ]] && BIN_CALL=1
 }
@@ -157,26 +158,16 @@ check_compatibility() {
 
 # Generalized set mechanism
 set_app_pref() {
-  BUNDLE_ID="${1}"
-  LAST_CHAR="${BUNDLE_ID: -1}"
-  if [[ "${LAST_CHAR}" == ":" ]]
-  then
-    BUNDLE_ID="${BUNDLE_ID%?}"
-  fi
-  defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
-  defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
+  TARGET_PLIST="${1}/Contents/Info.plist"
+  [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
+  $PlistBuddy -c "Add :${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${TARGET_PLIST}" 2>/dev/null
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
-  BUNDLE_ID="${1}"
-  LAST_CHAR="${BUNDLE_ID: -1}"
-  if [[ "${LAST_CHAR}" == ":" ]]
-  then
-    BUNDLE_ID="${BUNDLE_ID%?}"
-  fi
-  defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-  defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
+  TARGET_PLIST="${1}/Contents/Info.plist"
+  [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
+  $PlistBuddy -c "Delete :${GPU_SELECTION_POLICY_KEY}" "${TARGET_PLIST}" 2>/dev/null
 }
 
 # Generic preference management for apps in given folder
@@ -186,9 +177,7 @@ manage_all_apps_prefs_in_folder() {
   while read APP
   do
     [[ -z "${APP}" || "${APP}" =~ "${UTILITIES}" ]] && continue
-    BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
-    [[ -z "${BUNDLE_ID}" ]] && continue
-    "${2}" "${BUNDLE_ID}"
+    "${2}" "${APP}"
     (( COUNT++ ))
     (( $COUNT % 5 == 0 )) && echo -en "◼"
   done < <(find "${1}" -type d -name "*.app" -prune 2>/dev/null)
@@ -198,10 +187,10 @@ manage_all_apps_prefs_in_folder() {
 manage_all_apps_egpu() {
   echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications${NORMAL}\n\n${BOLD}${1}ting...${NORMAL}"
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
-  manage_all_apps_prefs_in_folder "/Applications" "${2}" &
-  manage_all_apps_prefs_in_folder "${HOME}/Applications" "${2}" &
-  manage_all_apps_prefs_in_folder "${HOME}/Library/Application Support" "${2}" &
-  wait
+  for SEARCH_PATH in "${SEARCH_PATHS[@]}"
+  do
+    manage_all_apps_prefs_in_folder "${SEARCH_PATH}" "${2}"
+  done
   echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
@@ -212,10 +201,8 @@ manage_pref_for_found_app() {
   local FUNCTION="${3}"
   local APP_PRINT_NAME="${APP_PATH##*/}"
   local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
-  BUNDLE_ID="$(osascript -e "id of app \"${APP_PATH}\"" 2>/dev/null)"
-  [[ -z "${BUNDLE_ID}" || "${BUNDLE_ID}" == "????" ]] && echo -e "\nCould not find bundle ID. No action taken.\n" && return
   echo -e "\n${BOLD}${INTENT}ting preference for ${APP_PRINT_NAME}...${NORMAL}"
-  "${FUNCTION}" "${BUNDLE_ID}"
+  "${FUNCTION}" "${1}"
   echo -e "Preferences ${MESSAGE}.\n"
 }
 
@@ -240,15 +227,6 @@ manage_specified_apps_egpu() {
   IFS= read -p "${BOLD}Application${NORMAL} Name or Acronym: " INPUT
   [[ -z "${INPUT}" ]] && echo -e "\nEmpty input provided. No action taken.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
-  BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
-  if [[ ! -z "${BUNDLE_ID}" && "${BUNDLE_ID}" != "????" ]]
-  then
-    MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
-    echo -e "\n${BOLD}${1}ting preference for ${INPUT}...${NORMAL}"
-    "${2}" "${BUNDLE_ID}"
-    echo -e "Preferences ${MESSAGE}.\n"
-    return
-  fi
   echo -e "\n${BOLD}Searching for possible matches...${NORMAL}"
   GENERALIZED_APP_NAME=""
   shopt -u nocasematch
@@ -285,17 +263,12 @@ manage_specified_apps_egpu() {
 }
 
 print_current_preferences() {
-  BUNDLE_ID="${1}"
-  CURRENT_APP="${2}"
-  CURRENT_PREF=""
-  LAST_CHAR="${BUNDLE_ID: -1}"
-  if [[ "${LAST_CHAR}" == ":" ]]
-  then
-    BUNDLE_ID="${BUNDLE_ID%?}"
-  fi
-  CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>/dev/null)"
+  local APP_PLIST="${1}/Contents/Info.plist"
+  [[ ! -e "${APP_PLIST}" ]] && echo "Unable to find ${BOLD}plist${NORMAL} for "${2}"." && return
+  local APP_NAME="${2}"
+  local CURRENT_PREF="$(${PlistBuddy} -c "Print :${GPU_SELECTION_POLICY_KEY}" "${APP_PLIST}" 2>/dev/null)"
   [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers eGPU" || CURRENT_PREF="Not Set"
-  echo -e "${BOLD}${CURRENT_APP}${NORMAL}: ${CURRENT_PREF}"
+  echo -e "${BOLD}${APP_NAME}${NORMAL}: ${CURRENT_PREF}"
 }
 
 # Check preferences for specified application
@@ -306,8 +279,6 @@ check_app_preferences() {
   [[ -z "${INPUT}" ]] && echo -e "\nPlease enter an application name.\n" && return
   [[ "${INPUT}" == "quit" ]] && echo && return
   GENERALIZED_APP_NAME=""
-  BUNDLE_ID="$(osascript -e "id of app \"${INPUT}\"" 2>/dev/null)"
-  [[ ! -z "${BUNDLE_ID}" && "${BUNDLE_ID}" != "????" ]] && echo && print_current_preferences "${BUNDLE_ID}" "${INPUT}" && echo && return
   echo -e "\n${BOLD}Searching for possible matches...${NORMAL}"
   shopt -u nocasematch
   if [[ ! "${INPUT}" =~ [a-z] && ! "${INPUT}" =~ " " ]]
@@ -324,11 +295,9 @@ check_app_preferences() {
     [[ "${APP}" =~ "${UTILITIES}" ]] && continue
     [[ $APP_COUNT == 0 ]] && echo
     (( APP_COUNT++ ))
-    BUNDLE_ID="$(osascript -e "id of app \"${APP}\"" 2>/dev/null)"
     APP_NAME="${APP##*/}"
     APP_NAME="${APP_NAME%.*}"
-    [[ -z "${BUNDLE_ID}" || "${BUNDLE_ID}" == "????" ]] && echo -e "${BOLD}${APP_NAME}${NORMAL}: No Configuration Available" && continue
-    print_current_preferences "${BUNDLE_ID}" "${APP_NAME}"
+    print_current_preferences "${APP}" "${APP_NAME}"
   done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
   (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
 }
@@ -337,7 +306,7 @@ check_app_preferences() {
 uninstall() {
   echo -e "\n>> ${BOLD}Uninstall Set-eGPU${NORMAL}\n"
   echo -e "This process will ${BOLD}reset preferences for all applications${NORMAL},\nand ${BOLD}remove set-eGPU${NORMAL} from your system if present.\n"
-  read -p "${BOLD}Proceed?${NORMAL} [Y/N]: " INPUT
+  read -n1 -p "${BOLD}Proceed?${NORMAL} [Y/N]: " INPUT
   if [[ ! -z "${INPUT}" ]]
   then
     manage_all_apps_egpu "Reset" "reset_app_pref"
@@ -351,9 +320,9 @@ uninstall() {
 
 # Ask for main menu
 ask_menu() {
-  read -p "${BOLD}Back to menu?${NORMAL} [Y/N]: " INPUT
+  read -n1 -p "${BOLD}Back to menu?${NORMAL} [Y/N]: " INPUT
   [[ "${INPUT}" == "Y" ]] && clear && echo -e "\n>> ${BOLD}Set-eGPU (${SCRIPT_VER})${NORMAL}" && provide_menu_selection && return
-  [[ "${INPUT}" == "N" ]] && echo && exit
+  [[ "${INPUT}" == "N" ]] && echo -e "\n" && exit
   echo -e "\nInvalid choice. Try again.\n"
   ask_menu
 }
@@ -361,16 +330,17 @@ ask_menu() {
 # Menu
 provide_menu_selection() {
   echo -e "
-   ${BOLD}1.${NORMAL}  Set eGPU Preference for All Applications
-   ${BOLD}2.${NORMAL}  Set eGPU Preference for Specified Application(s)
-   ${BOLD}3.${NORMAL}  Check Application eGPU Preference
-   ${BOLD}4.${NORMAL}  Reset GPU Preferences for All Applications
-   ${BOLD}5.${NORMAL}  Reset GPU Preferences for Specified Application(s)
-   ${BOLD}6.${NORMAL}  Uninstall Set-eGPU
+  >> ${BOLD}Prefer eGPU${NORMAL}                  >> ${BOLD}Reset Preferences
+  ${BOLD}1.${NORMAL} All Applications            ${BOLD}4.${NORMAL} All Applications
+  ${BOLD}2.${NORMAL} All Applications At Target  ${BOLD}5.${NORMAL} All Applications At Target
+  ${BOLD}3.${NORMAL} Specified Application(s)    ${BOLD}6.${NORMAL} Specified Application(s)
 
-   ${BOLD}0.${NORMAL}  Quit
+  ${BOLD}7.${NORMAL} Check eGPU Preferences
+  ${BOLD}8.${NORMAL} Uninstall Set-eGPU
+
+  ${BOLD}0.${NORMAL} Quit
   "
-  read -p "${BOLD}What next?${NORMAL} [0-6]: " INPUT
+  read -n1 -p "${BOLD}What next?${NORMAL} [0-8]: " INPUT
   if [[ ! -z "${INPUT}" ]]
   then
     process_args "${INPUT}"
@@ -382,18 +352,19 @@ provide_menu_selection() {
 
 # Process arguments
 process_args() {
+  echo
   case "${1}" in
     -sa|--set-all|1)
     manage_all_apps_egpu "Set" "set_app_pref";;
-    -ss|--set-specified|2)
+    -ss|--set-specified|3)
     manage_specified_apps_egpu "Set" "set_app_pref";;
-    -c|--check|3)
+    -c|--check|7)
     check_app_preferences;;
     -ra|--reset-all|4)
     manage_all_apps_egpu "Reset" "reset_app_pref";;
-    -rs|--reset-specified|5)
+    -rs|--reset-specified|6)
     manage_specified_apps_egpu "Reset" "reset_app_pref";;
-    -u|--uninstall|6)
+    -u|--uninstall|8)
     uninstall;;
     0)
     echo && exit;;
@@ -408,6 +379,7 @@ process_args() {
 
 # Primary execution routine
 begin() {
+  elevate_privileges
   validate_caller "${1}" "${2}"
   check_compatibility
   process_args "${2}"
