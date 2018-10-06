@@ -158,16 +158,16 @@ check_compatibility() {
 
 # Generalized set mechanism
 set_app_pref() {
-  TARGET_PLIST="${1}/Contents/Info.plist"
-  [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
-  $PlistBuddy -c "Add :${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${TARGET_PLIST}" 2>/dev/null
+  # TARGET_PLIST="${1}/Contents/Info.plist"
+  # [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
+  # $PlistBuddy -c "Add :${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${TARGET_PLIST}" 2>/dev/null
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
-  TARGET_PLIST="${1}/Contents/Info.plist"
-  [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
-  $PlistBuddy -c "Delete :${GPU_SELECTION_POLICY_KEY}" "${TARGET_PLIST}" 2>/dev/null
+  # TARGET_PLIST="${1}/Contents/Info.plist"
+  # [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
+  # $PlistBuddy -c "Delete :${GPU_SELECTION_POLICY_KEY}" "${TARGET_PLIST}" 2>/dev/null
 }
 
 # Generic preference management for apps in given folder
