@@ -26,6 +26,7 @@ SCRIPT_FILE=""
 # Script version
 SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
+IS_HIGH_SIERRA=0
 
 # User input
 INPUT=""
@@ -152,22 +153,25 @@ check_compatibility() {
   MACOS_MAJOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f2)"
   MACOS_MINOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f3)"
   [[ ("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
+  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1
 }
 
 # ----- APPLICATION PREFERENCES MANAGER
 
 # Generalized set mechanism
 set_app_pref() {
-  # TARGET_PLIST="${1}/Contents/Info.plist"
-  # [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
-  # $PlistBuddy -c "Add :${GPU_SELECTION_POLICY_KEY} string ${GPU_SELECTION_POLICY_VALUE}" "${TARGET_PLIST}" 2>/dev/null
+  APP_PLIST="${1}/Contents/Info.plist"
+  BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+  defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
+  defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
-  # TARGET_PLIST="${1}/Contents/Info.plist"
-  # [[ ! -e "${TARGET_PLIST}" ]] && echo "Unable to retrieve ${BOLD}plist${NORMAL} for ${1}." && return
-  # $PlistBuddy -c "Delete :${GPU_SELECTION_POLICY_KEY}" "${TARGET_PLIST}" 2>/dev/null
+  APP_PLIST="${1}/Contents/Info.plist"
+  BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+  defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
+  defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
 }
 
 # Generic preference management for apps in given folder
@@ -379,7 +383,6 @@ process_args() {
 
 # Primary execution routine
 begin() {
-  elevate_privileges
   validate_caller "${1}" "${2}"
   check_compatibility
   process_args "${2}"
