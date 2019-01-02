@@ -27,6 +27,7 @@ SCRIPT_FILE=""
 SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
+PREF_SET_ERROR=0
 
 # User input
 INPUT=""
@@ -158,20 +159,54 @@ check_compatibility() {
 
 # ----- APPLICATION PREFERENCES MANAGER
 
+# Mojave+ preference toggle
+toggle_gpu_pref() {
+  local APP="${1}"
+  local TOGGLE="${2}"
+  local APP_PRINT_NAME="${APP##*/}"
+  local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
+  PREF_SET_ERROR=$(osascript -e "
+  set appFile to (POSIX file \"${APP}\") as alias
+  try
+    tell application \"Finder\" to open information window of appFile
+    tell application \"System Events\" to tell process \"Finder\"
+      set eGPUBox to checkbox \"Prefer External GPU\" of scroll area 1 of window \"${APP_PRINT_NAME} Info\"
+      set status to value of eGPUBox as boolean
+      if status is ${TOGGLE} then click eGPUBox
+      return 0
+    end tell
+  on error errMsg
+    return 1
+  end try
+  ")
+}
+
 # Generalized set mechanism
 set_app_pref() {
-  APP_PLIST="${1}/Contents/Info.plist"
-  BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
-  defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
-  defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
+  local FULL_APP_PATH="${1}"
+  if (( ${IS_HIGH_SIERRA} == 1 ))
+  then
+    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
+    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
+    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
+    return
+  fi
+  toggle_gpu_pref "${FULL_APP_PATH}" false
 }
 
 # Generalized reset mechanism
 reset_app_pref() {
-  APP_PLIST="${1}/Contents/Info.plist"
-  BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
-  defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-  defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
+  local FULL_APP_PATH="${1}"
+  if (( ${IS_HIGH_SIERRA} == 1 ))
+  then
+    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
+    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
+    defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
+    return
+  fi
+  toggle_gpu_pref "${FULL_APP_PATH}" true
 }
 
 # Generic preference management for apps in given folder
@@ -345,6 +380,7 @@ provide_menu_selection() {
   ${BOLD}0.${NORMAL} Quit
   "
   read -n1 -p "${BOLD}What next?${NORMAL} [0-8]: " INPUT
+  echo
   if [[ ! -z "${INPUT}" ]]
   then
     process_args "${INPUT}"
@@ -356,7 +392,7 @@ provide_menu_selection() {
 
 # Process arguments
 process_args() {
-  echo
+  PREF_SET_ERROR=0
   case "${1}" in
     -sa|--set-all|1)
     manage_all_apps_egpu "Set" "set_app_pref";;
