@@ -151,12 +151,18 @@ validate_caller() {
   [[ "$SCRIPT" == "$SCRIPT_BIN" || "$SCRIPT" == "set-eGPU" ]] && BIN_CALL=1
 }
 
+# Check eGPU presence for Mojave+
+check_egpu_presence() {
+  EGPU_VENDOR="$(ioreg -n display@0 | grep \"vendor-id\" | cut -d "=" -f2 | sed 's/ <//' | sed 's/>//' | cut -c1-4 | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
+  [[ -z "${EGPU_VENDOR}" ]] && echo -e "\nExternal GPU must be plugged in for ${BOLD}set-eGPU${NORMAL} on macOS 10.14+.\n" && exit
+}
+
 # macOS Version check
 check_compatibility() {
   MACOS_MAJOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f2)"
   MACOS_MINOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f3)"
   [[ ("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
-  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1
+  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1 || check_egpu_presence
 }
 
 # ----- APPLICATION PREFERENCES MANAGER
@@ -254,7 +260,7 @@ manage_all_apps_egpu() {
   do
     manage_all_apps_prefs_in_folder "${SEARCH_PATH}" "${2}"
   done
-  (( ${MISSED_APP} == 1 )) && echo -e "\r\033[KSome preferences unchanged.\n\nPlease ensure ${BOLD}Terminal${NORMAL} was granted access to control macOS\nand your external GPU was plugged in. Additionally, some\napps such as ${BOLD}Photos${NORMAL} do not have this option.\n" || echo -e "\r\033[KPreferences ${MESSAGE}.\n"
+  (( ${MISSED_APP} == 1 )) && echo -e "\r\033[KDone. Some preferences unchanged.\n\nPlease ensure ${BOLD}Terminal${NORMAL} was granted access to control macOS\nand your external GPU was plugged in. Additionally, some\napps such as ${BOLD}Photos${NORMAL} do not have this option.\n" || echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
 manage_pref_for_found_app() {
@@ -389,6 +395,7 @@ uninstall() {
   read -n1 -p "${BOLD}Proceed?${NORMAL} [Y/N]: " INPUT
   if [[ ! -z "${INPUT}" ]]
   then
+    echo
     manage_all_apps_egpu "Reset" "reset_app_pref"
     [[ -e "${SCRIPT_BIN}" ]] && rm "${SCRIPT_BIN}" && echo -e "Removal successful.\n" && exit
   else
@@ -410,7 +417,7 @@ ask_menu() {
 # Menu
 provide_menu_selection() {
   echo -e "
-  >> ${BOLD}Prefer eGPU${NORMAL}                  >> ${BOLD}Reset Preferences
+  >> ${BOLD}Prefer eGPU${NORMAL}                 >> ${BOLD}Reset Preferences
   ${BOLD}1.${NORMAL} All Applications            ${BOLD}4.${NORMAL} All Applications
   ${BOLD}2.${NORMAL} All Applications At Target  ${BOLD}5.${NORMAL} All Applications At Target
   ${BOLD}3.${NORMAL} Specified Application(s)    ${BOLD}6.${NORMAL} Specified Application(s)
