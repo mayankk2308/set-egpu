@@ -30,6 +30,7 @@ IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
 PREF_RETURN=0
 MISSED_APP=0
+NO_APPS=0
 
 # User input
 INPUT=""
@@ -153,6 +154,7 @@ validate_caller() {
 
 # Check eGPU presence for Mojave+
 check_egpu_presence() {
+  (( ${IS_HIGH_SIERRA} == 1 )) && return
   EGPU_VENDOR="$(ioreg -n display@0 | grep \"vendor-id\" | cut -d "=" -f2 | sed 's/ <//' | sed 's/>//' | cut -c1-4 | sed -E 's/^(.{2})(.{2}).*$/\2\1/')"
   [[ -z "${EGPU_VENDOR}" ]] && echo -e "\nExternal GPU must be plugged in for ${BOLD}set-eGPU${NORMAL} on macOS 10.14+.\n" && exit
 }
@@ -162,7 +164,7 @@ check_compatibility() {
   MACOS_MAJOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f2)"
   MACOS_MINOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f3)"
   [[ ("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
-  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1 || check_egpu_presence
+  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1
 }
 
 # ----- APPLICATION PREFERENCES MANAGER
@@ -249,6 +251,23 @@ manage_all_apps_prefs_in_folder() {
     (( COUNT++ ))
     (( $COUNT % 5 == 0 )) && echo -en "◼"
   done < <(find "${1}" -type d -name "*.app" -prune 2>/dev/null)
+  (( COUNT == 0 )) && NO_APPS=1
+}
+
+# Manage preferences for all applications at target
+manage_all_apps_egpu_target() {
+  MISSED_APP=0
+  NO_APPS=0
+  TARGET=""
+  echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications At Target${NORMAL}\n\nProvide a full path to a directory to update preferences for all\napplications in that directory. Example: ${BOLD}/Volumes/MyExternalDrive${NORMAL}\n"
+  read -p "${BOLD}Path${NORMAL}: " TARGET
+  [[ ! -d "${TARGET}" ]] && echo -e "\nInvalid input or not a directory.\n" && return
+  echo -e "\n${BOLD}${1}ting...${NORMAL}"
+  MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
+  manage_all_apps_prefs_in_folder "${TARGET}" "${2}"
+  (( ${MISSED_APP} == 1 )) && echo -e "\r\033[KDone. Some preferences unchanged.\n\nPlease ensure ${BOLD}Terminal${NORMAL} was granted access to control macOS\nand your external GPU was plugged in. Additionally, some\napps such as ${BOLD}Photos${NORMAL} do not have this option.\n" && return
+  (( ${NO_APPS} == 1 )) && echo -e "\r\033[KNo applications found.\n" && return
+  echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
 # Manage preferences for all applications
@@ -443,16 +462,28 @@ process_args() {
   PREF_SET_ERROR=0
   case "${1}" in
     -sa|--set-all|1)
+    check_egpu_presence
     manage_all_apps_egpu "Set" "set_app_pref";;
+    -st|--set-target|2)
+    check_egpu_presence
+    manage_all_apps_egpu_target "Set" "set_app_pref";;
     -ss|--set-specified|3)
+    check_egpu_presence
     manage_specified_apps_egpu "Set" "set_app_pref";;
-    -c|--check|7)
-    check_app_preferences;;
     -ra|--reset-all|4)
+    check_egpu_presence
     manage_all_apps_egpu "Reset" "reset_app_pref";;
+    -rt|--reset-target|5)
+    check_egpu_presence
+    manage_all_apps_egpu_target "Reset" "reset_app_pref";;
     -rs|--reset-specified|6)
+    check_egpu_presence
     manage_specified_apps_egpu "Reset" "reset_app_pref";;
+    -c|--check|7)
+    check_egpu_presence
+    check_app_preferences;;
     -u|--uninstall|8)
+    check_egpu_presence
     uninstall;;
     0)
     echo && exit;;
@@ -469,6 +500,7 @@ process_args() {
 begin() {
   validate_caller "${1}" "${2}"
   check_compatibility
+  check_egpu_presence
   process_args "${2}"
 }
 
