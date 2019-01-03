@@ -28,6 +28,7 @@ SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="0"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
+PREF_RETURN=0
 
 # User input
 INPUT=""
@@ -163,19 +164,39 @@ check_compatibility() {
 toggle_gpu_pref() {
   local APP="${1}"
   local TOGGLE="${2}"
-  local APP_PRINT_NAME="${APP##*/}"
-  local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
   PREF_SET_ERROR=$(osascript -e "
   set appFile to (POSIX file \"${APP}\") as alias
   try
     tell application \"Finder\" to open information window of appFile
     tell application \"System Events\" to tell process \"Finder\"
-      set eGPUBox to checkbox \"Prefer External GPU\" of scroll area 1 of window \"${APP_PRINT_NAME} Info\"
+      set eGPUBox to checkbox \"Prefer External GPU\" of scroll area 1 of window 1
       set status to value of eGPUBox as boolean
       if status is ${TOGGLE} then click eGPUBox
+      tell application \"Finder\" to close information window of appFile
       return 0
     end tell
   on error errMsg
+    tell application \"Finder\" to close information window of appFile
+    return 1
+  end try
+  ")
+}
+
+# Mojave+ preference retrieval
+retrieve_gpu_pref() {
+  local APP="${1}"
+  PREF_RETURN=$(osascript -e "
+  set appFile to (POSIX file \"${APP}\") as alias
+  try
+    tell application \"Finder\" to open information window of appFile
+    tell application \"System Events\" to tell process \"Finder\"
+      set eGPUBox to checkbox \"Prefer External GPU\" of scroll area 1 of window 1
+      set status to value of eGPUBox as boolean
+      tell application \"Finder\" to close information window of appFile
+      return status
+    end tell
+  on error errMsg
+    tell application \"Finder\" to close information window of appFile
     return 1
   end try
   ")
@@ -217,6 +238,7 @@ manage_all_apps_prefs_in_folder() {
   do
     [[ -z "${APP}" || "${APP}" =~ "${UTILITIES}" ]] && continue
     "${2}" "${APP}"
+    (( ${PREF_SET_ERROR} == 1 )) && break
     (( COUNT++ ))
     (( $COUNT % 5 == 0 )) && echo -en "◼"
   done < <(find "${1}" -type d -name "*.app" -prune 2>/dev/null)
@@ -229,8 +251,9 @@ manage_all_apps_egpu() {
   for SEARCH_PATH in "${SEARCH_PATHS[@]}"
   do
     manage_all_apps_prefs_in_folder "${SEARCH_PATH}" "${2}"
+    (( ${PREF_SET_ERROR} == 1 )) && break
   done
-  echo -e "\r\033[KPreferences ${MESSAGE}.\n"
+  (( ${PREF_SET_ERROR} == 1 )) && echo -e "\r\033[KSome preferences unchanged. Please ensure ${BOLD}Terminal${NORMAL} was granted access\nto control macOS and your external GPU was plugged in.\n" || echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
 manage_pref_for_found_app() {
@@ -242,7 +265,7 @@ manage_pref_for_found_app() {
   local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
   echo -e "\n${BOLD}${INTENT}ting preference for ${APP_PRINT_NAME}...${NORMAL}"
   "${FUNCTION}" "${1}"
-  echo -e "Preferences ${MESSAGE}.\n"
+  (( ${PREF_SET_ERROR} == 1 )) && echo -e "\r\033[KPreferences unchanged. Please ensure ${BOLD}Terminal${NORMAL} was granted access\nto control macOS and your external GPU was plugged in.\n" || echo -e "Preferences ${MESSAGE}.\n"
 }
 
 # Ask for specific application
