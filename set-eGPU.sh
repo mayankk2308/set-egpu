@@ -29,6 +29,7 @@ SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
 PREF_RETURN=0
+MISSED_APP=0
 
 # User input
 INPUT=""
@@ -197,7 +198,7 @@ retrieve_gpu_pref() {
     end tell
   on error errMsg
     tell application \"Finder\" to close information window of appFile
-    return 1
+    return 0
   end try
   ")
 }
@@ -238,7 +239,7 @@ manage_all_apps_prefs_in_folder() {
   do
     [[ -z "${APP}" || "${APP}" =~ "${UTILITIES}" ]] && continue
     "${2}" "${APP}"
-    (( ${PREF_SET_ERROR} == 1 )) && break
+    (( ${PREF_SET_ERROR} == 1 )) && MISSED_APP=1
     (( COUNT++ ))
     (( $COUNT % 5 == 0 )) && echo -en "◼"
   done < <(find "${1}" -type d -name "*.app" -prune 2>/dev/null)
@@ -246,14 +247,14 @@ manage_all_apps_prefs_in_folder() {
 
 # Manage preferences for all applications
 manage_all_apps_egpu() {
+  MISSED_APP=0
   echo -e "\n>> ${BOLD}${1} GPU Preferences for All Applications${NORMAL}\n\n${BOLD}${1}ting...${NORMAL}"
   MESSAGE="$(echo -e "${1}" | awk '{ print tolower($0) }')"
   for SEARCH_PATH in "${SEARCH_PATHS[@]}"
   do
     manage_all_apps_prefs_in_folder "${SEARCH_PATH}" "${2}"
-    (( ${PREF_SET_ERROR} == 1 )) && break
   done
-  (( ${PREF_SET_ERROR} == 1 )) && echo -e "\r\033[KSome preferences unchanged. Please ensure ${BOLD}Terminal${NORMAL} was granted access\nto control macOS and your external GPU was plugged in.\n" || echo -e "\r\033[KPreferences ${MESSAGE}.\n"
+  (( ${MISSED_APP} == 1 )) && echo -e "\r\033[KSome preferences unchanged.\n\nPlease ensure ${BOLD}Terminal${NORMAL} was granted access to control macOS\nand your external GPU was plugged in. Additionally, some\napps such as ${BOLD}Photos${NORMAL} do not have this option.\n" || echo -e "\r\033[KPreferences ${MESSAGE}.\n"
 }
 
 manage_pref_for_found_app() {
@@ -265,7 +266,7 @@ manage_pref_for_found_app() {
   local APP_PRINT_NAME="${APP_PRINT_NAME%.*}"
   echo -e "\n${BOLD}${INTENT}ting preference for ${APP_PRINT_NAME}...${NORMAL}"
   "${FUNCTION}" "${1}"
-  (( ${PREF_SET_ERROR} == 1 )) && echo -e "\r\033[KPreferences unchanged. Please ensure ${BOLD}Terminal${NORMAL} was granted access\nto control macOS and your external GPU was plugged in.\n" || echo -e "Preferences ${MESSAGE}.\n"
+  (( ${PREF_SET_ERROR} == 1 )) && echo -e "\r\033[KPreferences unchanged.\n\nPlease ensure ${BOLD}Terminal${NORMAL} was granted access to control macOS\nand your external GPU was plugged in. Additionally, some\napps such as ${BOLD}Photos${NORMAL} do not have this option.\n" || echo -e "Preferences ${MESSAGE}.\n"
 }
 
 # Ask for specific application
@@ -328,11 +329,22 @@ manage_specified_apps_egpu() {
 }
 
 print_current_preferences() {
-  local APP_PLIST="${1}/Contents/Info.plist"
-  [[ ! -e "${APP_PLIST}" ]] && echo "Unable to find ${BOLD}plist${NORMAL} for "${2}"." && return
+  PREF_RETURN=0
+  local FULL_APP_PATH="${1}"
   local APP_NAME="${2}"
-  local CURRENT_PREF="$(${PlistBuddy} -c "Print :${GPU_SELECTION_POLICY_KEY}" "${APP_PLIST}" 2>/dev/null)"
-  [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers eGPU" || CURRENT_PREF="Not Set"
+  local CURRENT_PREF="Not Supported/Undetermined"
+  if (( ${IS_HIGH_SIERRA} == 1 ))
+  then
+    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
+    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    local CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>&1)"
+    [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers eGPU" || CURRENT_PREF="Not Set"
+    echo -e "${BOLD}${APP_NAME}${NORMAL}: ${CURRENT_PREF}"
+    return
+  fi
+  retrieve_gpu_pref "${FULL_APP_PATH}"
+  [[ "${PREF_RETURN}" == "true" ]] && CURRENT_PREF="Prefers eGPU"
+  [[ "${PREF_RETURN}" == "false" ]] && CURRENT_PREF="Not Set"
   echo -e "${BOLD}${APP_NAME}${NORMAL}: ${CURRENT_PREF}"
 }
 
