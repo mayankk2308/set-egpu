@@ -301,17 +301,20 @@ manage_specified_apps_egpu() {
   shopt -s nocasematch
   GENERALIZED_APP_NAME="${GENERALIZED_APP_NAME}.app"
   APP_COUNT=0
-  while read APP
+  for SEARCH_PATH in "${SEARCH_PATHS[@]}"
   do
-    [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo -e "\n${BOLD}Possible Matches${NORMAL}:"
-    APP_NAME="${APP##*/}"
-    APP_NAME="${APP_NAME%.*}"
-    APPS_LIST+=("${APP}")
-    (( APP_COUNT++ ))
-    printf "${BOLD}%-3d${NORMAL}:  %-s\n" "${APP_COUNT}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
-  case $APP_COUNT in
+    while read APP
+    do
+      [[ "${APP}" =~ "${UTILITIES}" ]] && continue
+      [[ $APP_COUNT == 0 ]] && echo -e "\n${BOLD}Possible Matches${NORMAL}:"
+      APP_NAME="${APP##*/}"
+      APP_NAME="${APP_NAME%.*}"
+      APPS_LIST+=("${APP}")
+      (( APP_COUNT++ ))
+      printf "${BOLD}%-3d${NORMAL}:  %-s\n" "${APP_COUNT}" "${APP_NAME}"
+    done < <(find "${SEARCH_PATH}" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+  done
+  case ${APP_COUNT} in
     0)
     echo -e "No matches found for your search.\n";;
     1)
@@ -352,15 +355,18 @@ check_app_preferences() {
   shopt -s nocasematch
   GENERALIZED_APP_NAME="${GENERALIZED_APP_NAME}.app"
   APP_COUNT=0
-  while read APP
+  for SEARCH_PATH in "${SEARCH_PATHS[@]}"
   do
-    [[ "${APP}" =~ "${UTILITIES}" ]] && continue
-    [[ $APP_COUNT == 0 ]] && echo
-    (( APP_COUNT++ ))
-    APP_NAME="${APP##*/}"
-    APP_NAME="${APP_NAME%.*}"
-    print_current_preferences "${APP}" "${APP_NAME}"
-  done < <(find "/Applications" "${HOME}/Applications" "${HOME}/Library/Application Support" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+    while read APP
+    do
+      [[ "${APP}" =~ "${UTILITIES}" ]] && continue
+      [[ $APP_COUNT == 0 ]] && echo
+      (( APP_COUNT++ ))
+      APP_NAME="${APP##*/}"
+      APP_NAME="${APP_NAME%.*}"
+      print_current_preferences "${APP}" "${APP_NAME}"
+    done < <(find "${SEARCH_PATH}" \( -iname "*.app" -prune \) -iname "${GENERALIZED_APP_NAME}" 2>/dev/null)
+  done
   (( APP_COUNT == 0 )) && echo -e "No matches found for your search.\n" || echo -e "\nSearch complete.\n"
 }
 
