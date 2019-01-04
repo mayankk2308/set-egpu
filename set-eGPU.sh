@@ -460,30 +460,23 @@ provide_menu_selection() {
 # Process arguments
 process_args() {
   PREF_SET_ERROR=0
+  check_egpu_presence
   case "${1}" in
     -sa|--set-all|1)
-    check_egpu_presence
     manage_all_apps_egpu "Set" "set_app_pref";;
     -st|--set-target|2)
-    check_egpu_presence
     manage_all_apps_egpu_target "Set" "set_app_pref";;
     -ss|--set-specified|3)
-    check_egpu_presence
     manage_specified_apps_egpu "Set" "set_app_pref";;
     -ra|--reset-all|4)
-    check_egpu_presence
     manage_all_apps_egpu "Reset" "reset_app_pref";;
     -rt|--reset-target|5)
-    check_egpu_presence
     manage_all_apps_egpu_target "Reset" "reset_app_pref";;
     -rs|--reset-specified|6)
-    check_egpu_presence
     manage_specified_apps_egpu "Reset" "reset_app_pref";;
     -c|--check|7)
-    check_egpu_presence
     check_app_preferences;;
     -u|--uninstall|8)
-    check_egpu_presence
     uninstall;;
     0)
     echo && exit;;
