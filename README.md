@@ -70,7 +70,7 @@ Set-eGPU makes it super-simple to automate eGPU preference management through a 
 After installing the script, you likely will not need it again unless you want to manage new apps. Most settings should be permanent. If you **upgraded from High Sierra to Mojave or later**, you will need to set preferences again, since the mechanism has significant changes after High Sierra.
 
 ## Troubleshooting
-Troubleshooting plays an important role with eGPUs. New OSes and hardware tend to bring with them new problems and challenges. Even though eGPU support in macOS has become straightforward, not all applications may work as expected. The following is a list of additional resources rich in information:
+Check if your application is using the eGPU using [Activity Monitor](https://developer.apple.com/documentation/metal/tools_profiling_and_debugging/gpu_activity_monitors/monitoring_your_mac_s_gpu_activity/) before reading further. Troubleshooting plays an important role with eGPUs. New OSes and hardware tend to bring with them new problems and challenges. Even though eGPU support in macOS has become straightforward, not all applications may work as expected. The following is a list of additional resources rich in information:
 
 | Resource | Description |
 | :------: | :---------- |
