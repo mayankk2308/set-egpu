@@ -219,7 +219,6 @@ set_app_pref() {
     APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
     BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
     defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
-    defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
     return
   fi
   toggle_gpu_pref "${FULL_APP_PATH}" false
@@ -233,7 +232,6 @@ reset_app_pref() {
     APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
     BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
     defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
-    defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
     return
   fi
   toggle_gpu_pref "${FULL_APP_PATH}" true
