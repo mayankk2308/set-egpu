@@ -51,14 +51,13 @@ GPU_EJECT_POLICY_VALUE="relaunch"
 
 # PlistBuddy
 PlistBuddy="/usr/libexec/PlistBuddy"
-GPU_PLIST="${HOME}/Library/Preferences/com.apple.gpu.plist"
 
 # Exempt App Location(s)
 UTILITIES="/Applications/Utilities"
 
 # Found application(s) history
 APPS_LIST=()
-SEARCH_PATHS=("/Applications/" "/Users/${SUDO_USER}/Applications/" "/Users/${SUDO_USER}/Library/Application Support/")
+SEARCH_PATHS=("/Applications/" "${HOME}/Applications/" "${HOME}/Library/Application Support/")
 PlistBuddy="/usr/libexec/PlistBuddy"
 
 # ----- SOFTWARE UPDATES & INSTALLATION
