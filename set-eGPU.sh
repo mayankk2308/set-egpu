@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 2.0.1
+# Version: 2.0.2
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="1"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="2"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
@@ -217,8 +217,7 @@ set_app_pref() {
   local FULL_APP_PATH="${1}"
   if (( ${IS_HIGH_SIERRA} == 1 ))
   then
-    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
-    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    BUNDLE_ID="$(osascript -e "id of app \"${FULL_APP_PATH}\"")"
     defaults write "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" "${GPU_SELECTION_POLICY_VALUE}" 1>/dev/null 2>&1
     defaults write "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" "${GPU_EJECT_POLICY_VALUE}" 1>/dev/null 2>&1
     return
@@ -231,8 +230,7 @@ reset_app_pref() {
   local FULL_APP_PATH="${1}"
   if (( ${IS_HIGH_SIERRA} == 1 ))
   then
-    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
-    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    BUNDLE_ID="$(osascript -e "id of app \"${FULL_APP_PATH}\"")"
     defaults delete "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 1>/dev/null 2>&1
     defaults delete "${BUNDLE_ID}" "${GPU_EJECT_POLICY_KEY}" 1>/dev/null 2>&1
     return
@@ -361,8 +359,7 @@ print_current_preferences() {
   local CURRENT_PREF="Not Supported/Undetermined"
   if (( ${IS_HIGH_SIERRA} == 1 ))
   then
-    APP_PLIST="${FULL_APP_PATH}/Contents/Info.plist"
-    BUNDLE_ID="$($PlistBuddy -c "Print :CFBundleIdentifier" "${APP_PLIST}")"
+    BUNDLE_ID="$(osascript -e "id of app \"${FULL_APP_PATH}\"")"
     local CURRENT_PREF="$(defaults read "${BUNDLE_ID}" "${GPU_SELECTION_POLICY_KEY}" 2>&1)"
     [[ "${CURRENT_PREF}" == "${GPU_SELECTION_POLICY_VALUE}" ]] && CURRENT_PREF="Prefers eGPU" || CURRENT_PREF="Not Set"
     echo -e "${BOLD}${APP_NAME}${NORMAL}: ${CURRENT_PREF}"
