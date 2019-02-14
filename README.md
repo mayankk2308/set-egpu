@@ -34,7 +34,7 @@ Please read [Apple](https://support.apple.com/en-us/HT208544)'s external GPU doc
 ## Installation
 **set-eGPU.sh** auto-manages itself and provides multiple installation and uninstallation options. Once the **pre-requisites** are satisfied, install the script by running the following in **Terminal**:
 ```bash
-curl -s "https://api.github.com/repos/mayankk2308/set-egpu/releases/latest" | grep '"browser_download_url":' | sed -E 's/.*"([^"]+)".*/\1/' | xargs curl -L -s -0 > set-eGPU.sh && chmod +x set-eGPU.sh && ./set-eGPU.sh && rm set-eGPU.sh
+curl -q -s "https://api.github.com/repos/mayankk2308/set-egpu/releases/latest" | grep '"browser_download_url":' | sed -E 's/.*"browser_download_url":[ \t]*"([^"]+)".*/\1/' | xargs curl -L -s -0 > set-eGPU.sh && chmod +x set-eGPU.sh && ./set-eGPU.sh && rm set-eGPU.sh
 ```
 
 For future use, only the following will be required:
