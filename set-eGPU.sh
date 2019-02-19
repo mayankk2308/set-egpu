@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 2.0.2
+# Version: 2.0.3
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="2"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="3"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
@@ -74,7 +74,7 @@ elevate_privileges() {
 # Perform software update
 perform_software_update() {
   echo -e "${BOLD}Downloading...${NORMAL}"
-  curl -L -s "${LATEST_RELEASE_DWLD}" > "${TMP_SCRIPT}"
+  curl -q -L -s "${LATEST_RELEASE_DWLD}" > "${TMP_SCRIPT}"
   [[ "$(cat "${TMP_SCRIPT}")" == "Not Found" ]] && echo -e "Download failed.\n${BOLD}Continuing without updating...${NORMAL}" && sleep 1 && rm "${TMP_SCRIPT}" && return
   echo -e "Download complete.\n${BOLD}Updating...${NORMAL}"
   chmod 700 "${TMP_SCRIPT}" && chmod +x "${TMP_SCRIPT}"
@@ -91,7 +91,7 @@ prompt_software_update() {
   echo
   read -n1 -p "${BOLD}Would you like to update?${NORMAL} [Y/N]: " INPUT
   [[ "${INPUT}" == "Y" ]] && echo && perform_software_update && return
-  [[ "${INPUT}" == "N" ]] && echo -e "\n${BOLD}Proceeding without updating...${NORMAL}" && return
+  [[ "${INPUT}" == "N" ]] && echo -e "\n\n${BOLD}Proceeding without updating...${NORMAL}" && sleep 1 && return
   echo -e "\nInvalid choice. Try again."
   prompt_software_update
 }
@@ -99,7 +99,7 @@ prompt_software_update() {
 # Check Github for newer version + prompt update
 fetch_latest_release() {
   [[ "${BIN_CALL}" == 0 ]] && return
-  LATEST_SCRIPT_INFO="$(curl -s "https://api.github.com/repos/mayankk2308/set-egpu/releases/latest")"
+  LATEST_SCRIPT_INFO="$(curl -q -s "https://api.github.com/repos/mayankk2308/set-egpu/releases/latest")"
   LATEST_RELEASE_VER="$(echo -e "${LATEST_SCRIPT_INFO}" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
   LATEST_RELEASE_DWLD="$(echo -e "${LATEST_SCRIPT_INFO}" | grep '"browser_download_url":' | sed -E 's/.*"([^"]+)".*/\1/')"
   LATEST_MAJOR_VER="$(echo -e "${LATEST_RELEASE_VER}" | cut -d '.' -f1)"
@@ -107,7 +107,7 @@ fetch_latest_release() {
   LATEST_PATCH_VER="$(echo -e "${LATEST_RELEASE_VER}" | cut -d '.' -f3)"
   if [[ $LATEST_MAJOR_VER > $SCRIPT_MAJOR_VER || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER > $SCRIPT_MINOR_VER) || ($LATEST_MAJOR_VER == $SCRIPT_MAJOR_VER && $LATEST_MINOR_VER == $SCRIPT_MINOR_VER && $LATEST_PATCH_VER > $SCRIPT_PATCH_VER) && "$LATEST_RELEASE_DWLD" ]]
   then
-    echo -e "\n>> ${BOLD}Software Update${NORMAL}\n\nA script update (${BOLD}${LATEST_RELEASE_VER}${NORMAL}) is available.\nYou are currently on ${BOLD}${SCRIPT_VER}${NORMAL}."
+    echo -e "\n>> ${BOLD}Software Update${NORMAL}\n\nSoftware updates are available.\n\nOn Your System    ${BOLD}${SCRIPT_VER}${NORMAL}\nLatest Available  ${BOLD}${LATEST_RELEASE_VER}${NORMAL}\n\nFor the best experience, stick to the latest release."
     prompt_software_update
   fi
 }
