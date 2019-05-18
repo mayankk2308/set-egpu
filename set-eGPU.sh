@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 2.0.3
+# Version: 2.0.4
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="3"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="4"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
@@ -82,7 +82,7 @@ perform_software_update() {
   chown "${SUDO_USER}" "${SCRIPT}"
   echo -e "Update complete. ${BOLD}Relaunching...${NORMAL}"
   sleep 1
-  "${SCRIPT}"
+  "${SCRIPT}" "${OPTION}"
   exit
 }
 
@@ -422,6 +422,12 @@ uninstall() {
 
 # ----- DRIVER
 
+# Request donation
+donate() {
+  open "https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=mayankk2308@gmail.com&lc=US&item_name=Development%20of%20Set-eGPU&no_note=0&currency_code=USD&bn=PP-DonationsBF:btn_donate_SM.gif:NonHostedGuest"
+  echo -e "\nSee your ${BOLD}web browser${NORMAL}.\n"
+}
+
 # Ask for main menu
 ask_menu() {
   read -n1 -p "${BOLD}Back to menu?${NORMAL} [Y/N]: " INPUT
@@ -441,6 +447,7 @@ provide_menu_selection() {
 
   ${BOLD}7.${NORMAL} Check eGPU Preferences
   ${BOLD}8.${NORMAL} Uninstall Set-eGPU
+  ${BOLD}9.${NORMAL} Donate
 
   ${BOLD}0.${NORMAL} Quit
   "
@@ -476,6 +483,8 @@ process_args() {
     check_app_preferences;;
     -u|--uninstall|8)
     uninstall;;
+    -d|--donate|9)
+    donate;;
     0)
     echo && exit;;
     "")
