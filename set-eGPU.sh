@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 2.0.4
+# Version: 2.0.5
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="4"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="5"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
@@ -116,7 +116,7 @@ fetch_latest_release() {
 install_bin() {
   rsync "${SCRIPT_FILE}" "${SCRIPT_BIN}"
   chown "${SUDO_USER}" "${SCRIPT_BIN}"
-  chmod 700 "${SCRIPT_BIN}" && chmod a+x "${SCRIPT_BIN}"
+  chmod 755 "${SCRIPT_BIN}"
 }
 
 # Bin first-time setup
@@ -134,7 +134,7 @@ first_time_setup() {
   [[ ! -z "${BIN_SHA}" ]] && rm "${SCRIPT_BIN}"
   install_bin
   echo -e "Installation successful. ${BOLD}Proceeding...${NORMAL}\n" && sleep 1
-  su "${SUDO_USER}" "${SCRIPT}"
+  su "${SUDO_USER}" -c "${SCRIPT}"
   exit
 }
 
