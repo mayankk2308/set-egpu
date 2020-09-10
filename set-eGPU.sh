@@ -2,7 +2,7 @@
 
 # set-eGPU.sh
 # Author(s): Mayank Kumar (@mac_editor, egpu.io / @mayankk2308, github.com)
-# Version: 2.0.5
+# Version: 2.0.6
 
 # ----- ENVIRONMENT
 
@@ -24,7 +24,7 @@ BIN_CALL=0
 SCRIPT_FILE=""
 
 # Script version
-SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="5"
+SCRIPT_MAJOR_VER="2" && SCRIPT_MINOR_VER="0" && SCRIPT_PATCH_VER="6"
 SCRIPT_VER="${SCRIPT_MAJOR_VER}.${SCRIPT_MINOR_VER}.${SCRIPT_PATCH_VER}"
 IS_HIGH_SIERRA=0
 PREF_SET_ERROR=0
@@ -162,10 +162,11 @@ check_egpu_presence() {
 
 # macOS Version check
 check_compatibility() {
+  MACOS_LEAP_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f1)"
   MACOS_MAJOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f2)"
   MACOS_MINOR_VER="$(echo -e "${MACOS_VER}" | cut -d '.' -f3)"
-  [[ ("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
-  (( ${MACOS_MAJOR_VER} == 13 )) && IS_HIGH_SIERRA=1
+  [[ ${MACOS_LEAP_VER} == "10" && (("${MACOS_MAJOR_VER}" < 13) || ("${MACOS_MAJOR_VER}" == 13 && "${MACOS_MINOR_VER}" < 4)) ]] && echo -e "\nOnly ${BOLD}macOS 10.13.4 or later${NORMAL} compatible.\n" && exit
+  (( ${MACOS_LEAP_VER} == "10" && ${MACOS_MAJOR_VER} == "13" )) && IS_HIGH_SIERRA=1
 }
 
 # ----- APPLICATION PREFERENCES MANAGER
